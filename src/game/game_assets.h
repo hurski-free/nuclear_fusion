@@ -7,7 +7,6 @@
 #include <unordered_map>
 
 struct GameAssets {
-  int bg = -1;
   int proton = -1;
   int neutron = -1;
   int electron = -1;
@@ -20,10 +19,9 @@ struct GameAssets {
   std::unordered_map<std::string, int> isotopes;
 
   void Load(UiContext* ctx) {
-    if (!ctx || bg >= 0) {
+    if (!ctx || proton >= 0) {
       return;
     }
-    bg = ui_load_texture(ctx, L"assets\\bg_game.png");
     proton = ui_load_texture(ctx, L"assets\\icons\\proton.png");
     neutron = ui_load_texture(ctx, L"assets\\icons\\neutron.png");
     electron = ui_load_texture(ctx, L"assets\\icons\\electron.png");

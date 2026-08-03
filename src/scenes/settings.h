@@ -50,6 +50,7 @@ private:
     mode_index_ = ScreenModeToIndex(app.draft.screen_mode);
     res_index_ = FindResolutionIndex(app, app.draft.width, app.draft.height);
     msaa_index_ = FindMsaaIndex(app, app.draft.msaa_samples);
+    hud_refresh_index_ = FindHudRefreshIndex(app, app.draft.hud_refresh_sec);
     vsync_value_ = app.draft.vsync;
     brightness_value_ = app.draft.brightness * 100.f;
   }
@@ -88,6 +89,12 @@ private:
     if (msaa_index_ >= 0 &&
         msaa_index_ < static_cast<int>(app.msaa_options.size())) {
       app.draft.msaa_samples = app.msaa_options[msaa_index_].samples;
+    }
+    if (hud_refresh_index_ >= 0 &&
+        hud_refresh_index_ <
+            static_cast<int>(app.hud_refresh_options.size())) {
+      app.draft.hud_refresh_sec =
+          app.hud_refresh_options[hud_refresh_index_].seconds;
     }
     app.draft.vsync = vsync_value_;
     app.draft.brightness = brightness_value_ / 100.f;
@@ -129,23 +136,26 @@ private:
     panel_.closable = false;
     panel_.layer = 0;
     panel_.width = 560.f;
-    panel_.height = 520.f;
+    panel_.height = 620.f;
 
     mode_label_.text = L"Window mode";
-    mode_label_.font_size = 18.f;
+    mode_label_.font_size = 24.f;
     mode_label_.width = 240.f;
     mode_label_.height = 28.f;
+    ApplyUiFont(mode_label_);
 
     mode_.options = {L"Windowed", L"Borderless", L"Fullscreen"};
     mode_.orientation = RadioOrientation::Vertical;
     mode_.mode = RadioMode::Circle;
     mode_.bind_data(&mode_index_);
     mode_.selected = mode_index_;
+    ApplyUiFont(mode_);
 
     res_label_.text = L"Resolution";
-    res_label_.font_size = 18.f;
+    res_label_.font_size = 24.f;
     res_label_.width = 240.f;
     res_label_.height = 28.f;
+    ApplyUiFont(res_label_);
 
     res_.options.clear();
     for (const auto& opt : app.resolutions) {
@@ -153,11 +163,13 @@ private:
     }
     res_.bind_data(&res_index_);
     res_.selected = res_index_;
+    ApplyUiFont(res_);
 
     msaa_label_.text = L"Antialiasing";
-    msaa_label_.font_size = 18.f;
+    msaa_label_.font_size = 24.f;
     msaa_label_.width = 240.f;
     msaa_label_.height = 28.f;
+    ApplyUiFont(msaa_label_);
 
     msaa_.options.clear();
     for (const auto& opt : app.msaa_options) {
@@ -165,10 +177,26 @@ private:
     }
     msaa_.bind_data(&msaa_index_);
     msaa_.selected = msaa_index_;
+    ApplyUiFont(msaa_);
+
+    hud_refresh_label_.text = L"HUD refresh";
+    hud_refresh_label_.font_size = 24.f;
+    hud_refresh_label_.width = 240.f;
+    hud_refresh_label_.height = 28.f;
+    ApplyUiFont(hud_refresh_label_);
+
+    hud_refresh_.options.clear();
+    for (const auto& opt : app.hud_refresh_options) {
+      hud_refresh_.options.push_back(opt.label);
+    }
+    hud_refresh_.bind_data(&hud_refresh_index_);
+    hud_refresh_.selected = hud_refresh_index_;
+    ApplyUiFont(hud_refresh_);
 
     vsync_.label = L"Vertical sync";
     vsync_.bind_data(&vsync_value_);
     vsync_.checked = vsync_value_;
+    ApplyUiFont(vsync_);
 
     brightness_.text = L"Brightness";
     brightness_.min_value = 20.f;
@@ -177,6 +205,8 @@ private:
     brightness_.show_value = true;
     brightness_.bind_data(&brightness_value_);
     brightness_.value = brightness_value_;
+    ApplyUiFont(brightness_);
+    ApplyUiFont(panel_);
 
     ApplyConsoleButtonStyle(apply_, 160.f, 44.f);
     apply_.text = L"Apply";
@@ -194,9 +224,12 @@ private:
       }
     };
 
-    panel_.components = {&mode_label_, &mode_,   &res_label_, &res_,
-                         &msaa_label_, &msaa_,   &vsync_,     &brightness_,
-                         &apply_,      &cancel_};
+    panel_.components = {&mode_label_,       &mode_,
+                         &res_label_,        &res_,
+                         &msaa_label_,       &msaa_,
+                         &hud_refresh_label_, &hud_refresh_,
+                         &vsync_,            &brightness_,
+                         &apply_,            &cancel_};
 
     Layout(w, h);
 
@@ -246,6 +279,14 @@ private:
     msaa_.y = y;
     y += 56.f;
 
+    hud_refresh_label_.x = left;
+    hud_refresh_label_.y = y;
+    y += 34.f;
+
+    hud_refresh_.x = left;
+    hud_refresh_.y = y;
+    y += 56.f;
+
     vsync_.x = left;
     vsync_.y = y;
     y += 48.f;
@@ -273,6 +314,8 @@ private:
   Select res_{};
   Label msaa_label_{};
   Select msaa_{};
+  Label hud_refresh_label_{};
+  Select hud_refresh_{};
   Toggle vsync_{};
   Range brightness_{};
   Button apply_{};
@@ -282,6 +325,7 @@ private:
   int mode_index_ = 2;
   int res_index_ = 2;
   int msaa_index_ = 2;
+  int hud_refresh_index_ = 1;
   bool vsync_value_ = true;
   float brightness_value_ = 100.f;
 };

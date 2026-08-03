@@ -63,6 +63,9 @@ struct MouseEvents {
   // Cleared each frame with wheel_delta. Mutable so const MouseEvents& handlers
   // can mark consumption without changing the handle_messages signature.
   mutable bool wheel_consumed = false;
+  // Set when a handler consumes the left-button press (e.g. Select dropdown)
+  // so widgets underneath do not also activate on the same click.
+  mutable bool click_consumed = false;
 };
 
 // Per-frame keyboard snapshot. Indexed by virtual-key codes (0..255).
@@ -83,6 +86,8 @@ enum class DrawCommandType {
   Rect,         // Solid colored rectangle.
   Circle,       // Filled ellipse inscribed in x/y/width/height (SDF + AA).
   RoundedRect,  // Filled rect with corner_radius (SDF + AA); capsule when radius >= h/2.
+  Triangle,     // Filled isosceles triangle in x/y/width/height. Tip down by default;
+                // tip up when corner_radius > 0.
   Image,        // Textured quad; texture_id must be a valid loaded texture.
   Text,         // Text. Alignment via text_align; wrap enables word wrap.
   PushClip,     // Enable scissor to x/y/width/height (nested capable).
@@ -94,6 +99,12 @@ enum class TextAlign {
   Center,      // Centered on both axes (default for buttons).
   LeftTop,     // Left-aligned, top of the rect (multi-line starts at top).
   LeftMiddle,  // Left-aligned, vertically centered in the rect.
+};
+
+// Outline drawn around glyph silhouettes (Text / Label). thickness 0 = off.
+struct TextOutline {
+  float thickness = 0.f;
+  Color color{};
 };
 
 struct DrawCommand {
@@ -114,11 +125,14 @@ struct DrawCommand {
   float u1 = 1.f;
   float v1 = 1.f;
   // RoundedRect: corner radius in pixels (clamped to half the shorter side).
+  // Triangle: tip up when > 0; tip down when 0.
   float corner_radius = 0.f;
   // Text: pixel size. 0 = use the font atlas size.
   float font_size = 0.f;
   // Text: non-owning atlas. nullptr = context default font.
   const FontAtlas* font_atlas = nullptr;
+  // Text: outline around glyphs (thickness 0 = none).
+  TextOutline outline{};
 };
 
 // How a border is placed relative to the component box.

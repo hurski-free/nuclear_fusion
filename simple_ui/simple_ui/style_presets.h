@@ -42,6 +42,7 @@ struct TextStylePreset {
   float width = 200.f;
   float height = 0.f;
   Color color{1.f, 1.f, 1.f, 1.f};
+  TextOutline outline{};
   ComponentStyle style_base{Color{0.f, 0.f, 0.f, 0.f}, Border{}};
   ComponentStyle style_hovered{Color{0.f, 0.f, 0.f, 0.f}, Border{}};
   ComponentStyle style_active{Color{0.f, 0.f, 0.f, 0.f}, Border{}};
@@ -52,6 +53,7 @@ struct LabelStylePreset {
   float width = 120.f;
   float height = 24.f;
   Color color{1.f, 1.f, 1.f, 1.f};
+  TextOutline outline{};
   TextAlign text_align = TextAlign::LeftMiddle;
   ComponentStyle style_base{Color{0.f, 0.f, 0.f, 0.f}, Border{}};
   ComponentStyle style_hovered{Color{0.f, 0.f, 0.f, 0.f}, Border{}};

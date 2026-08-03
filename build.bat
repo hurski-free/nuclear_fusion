@@ -13,10 +13,12 @@ if not exist "%LIB%\simple_ui.dll" (
 
 if not exist "%OUT%" mkdir "%OUT%"
 
-echo Building Star Clicker...
+echo Building Nuclear Fusion...
 g++ -std=c++17 -O2 -finput-charset=UTF-8 -fexec-charset=UTF-8 ^
   -o "%OUT%\nuclear_fusion.exe" ^
   "%SRC%\main.cpp" ^
+  "%SRC%\scenes\game.cpp" ^
+  "%SRC%\game\star_canvas_renderer.cpp" ^
   -I "%LIB%" -I "%SRC%" ^
   -L "%LIB%" -lsimple_ui ^
   -ld3d11 -ldxgi -ld3dcompiler -lgdi32 -luser32 -lole32 -lwindowscodecs ^

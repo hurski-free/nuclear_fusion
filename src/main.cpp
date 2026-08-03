@@ -74,6 +74,12 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     return 1;
   }
 
+  // Sci-fi UI font (Orbitron, SIL OFL). Falls back to default if missing.
+  if (const FontAtlas* font =
+          ui_create_font(app.ctx, L"assets\\fonts\\Orbitron-Medium.ttf", 32.f)) {
+    SetUiFont(font);
+  }
+
   ui_set_brightness(app.ctx, app.settings.brightness);
 
   VSyncPacer vsync;

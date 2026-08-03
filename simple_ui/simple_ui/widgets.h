@@ -38,6 +38,7 @@ public:
 
   std::wstring text;
   Color color{};
+  TextOutline outline{};
   // Maximum line width used for wrapping (pixels).
   float width = 0.f;
   // Layout height for parents (0 = treat as one line ~ font-sized block).
@@ -304,6 +305,7 @@ public:
 
   std::wstring text;
   Color color{};
+  TextOutline outline{};
   float width = 0.f;
   float height = 0.f;
   TextAlign text_align = TextAlign::LeftMiddle;
@@ -537,6 +539,7 @@ public:
   void collect_overlay_draw(std::vector<DrawCommand*>& out) override;
   void handle_events() override;
   void get_layout_size(float& out_w, float& out_h) const override;
+  bool captures_input() const override;
 
   std::wstring title;
   Color title_color{};

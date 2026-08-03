@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -58,6 +59,10 @@ inline const wchar_t* StarTypeImagePath(StarType type) {
   }
 }
 
+inline constexpr double kSupernovaAtomGoal = 100.0;
+// Prestige (Neutron Star): 1 Dust per this many Gold atoms in stock.
+inline constexpr double kPrestigeGoldPerDust = 10.0;
+
 // Max atomic number synthesizable on the current star.
 inline int StarMaxAtomicNumber(StarType type) {
   switch (type) {
@@ -72,6 +77,40 @@ inline int StarMaxAtomicNumber(StarType type) {
     default:
       return 2;
   }
+}
+
+inline const wchar_t* ElementSymbol(const std::string& id) {
+  if (id == "Hydrogen") {
+    return L"H";
+  }
+  if (id == "Helium") {
+    return L"He";
+  }
+  if (id == "Carbon") {
+    return L"C";
+  }
+  if (id == "Oxygen") {
+    return L"O";
+  }
+  if (id == "Silicon") {
+    return L"Si";
+  }
+  if (id == "Iron") {
+    return L"Fe";
+  }
+  if (id == "Nickel") {
+    return L"Ni";
+  }
+  if (id == "Silver") {
+    return L"Ag";
+  }
+  if (id == "Xenon") {
+    return L"Xe";
+  }
+  if (id == "Gold") {
+    return L"Au";
+  }
+  return L"?";
 }
 
 inline double StarDustReward(StarType type) {
@@ -116,8 +155,41 @@ enum class UpgradeEffect {
   CritMultiplier,
   AutoEps,
   AutoClickMult,
-  AnnihilationMult,
+  IsotopeEpsMult,
 };
+
+// Grade thresholds: 10, 25, 50, 100, then every +100 (200, 300, ...).
+inline int UpgradeGrade(int level) {
+  if (level < 10) {
+    return 0;
+  }
+  if (level < 25) {
+    return 1;
+  }
+  if (level < 50) {
+    return 2;
+  }
+  if (level < 100) {
+    return 3;
+  }
+  // level 100 -> 4, 200 -> 5, 300 -> 6, ...
+  return 3 + level / 100;
+}
+
+// Extra effect multiplier from grade: 2^n (grade 0 → 1).
+inline double UpgradeGradeMultiplier(int grade) {
+  if (grade <= 0) {
+    return 1.0;
+  }
+  return std::pow(2.0, static_cast<double>(grade));
+}
+
+// Grades amplify click power, flat EPS, and isotope EPS multiplier upgrades.
+inline bool UpgradeUsesGrade(UpgradeEffect effect) {
+  return effect == UpgradeEffect::ClickPower ||
+         effect == UpgradeEffect::AutoEps ||
+         effect == UpgradeEffect::IsotopeEpsMult;
+}
 
 struct Element {
   std::string id;
@@ -127,8 +199,6 @@ struct Element {
   int neutrons_needed = 0;
   int electrons_needed = 1;
   double energy_activation = 10.0;
-  double k_eff_base = 1.0;
-  double mutation_chance = 0.0;
   double atom_count = 0.0;
   double nucleus_count = 0.0;
   double isotope_count = 0.0;
@@ -143,14 +213,23 @@ struct UpgradeDef {
   std::wstring description;
   std::vector<ResourceCost> base_costs;
   double cost_scale = 1.35;
-  int max_level = 50;
   UpgradeEffect effect = UpgradeEffect::ClickPower;
   double effect_per_level = 1.0;
   int level = 0;
 };
 
-enum class GameTab {
-  Star = 0,
-  Lab = 1,
-  Tech = 2,
+inline double UpgradeScaledEffect(const UpgradeDef& up) {
+  if (up.level <= 0) {
+    return 0.0;
+  }
+  const double grade_mult =
+      UpgradeUsesGrade(up.effect)
+          ? UpgradeGradeMultiplier(UpgradeGrade(up.level))
+          : 1.0;
+  return up.effect_per_level * static_cast<double>(up.level) * grade_mult;
+}
+
+struct ClickResult {
+  double gain = 0.0;
+  bool crit = false;
 };

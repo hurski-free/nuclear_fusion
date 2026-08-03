@@ -5,6 +5,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#include <cmath>
 #include <cstdio>
 #include <string>
 
@@ -78,6 +79,19 @@ inline void ClampSettings(AppSettings& settings) {
     settings.brightness = 1.5f;
   }
   settings.msaa_samples = SnapMsaaSamples(settings.msaa_samples);
+
+  // Snap HUD refresh to one of the supported intervals.
+  const float opts[] = {0.25f, 0.5f, 1.0f};
+  float best = 0.5f;
+  float best_d = 1.0e9f;
+  for (float o : opts) {
+    const float d = std::fabs(settings.hud_refresh_sec - o);
+    if (d < best_d) {
+      best_d = d;
+      best = o;
+    }
+  }
+  settings.hud_refresh_sec = best;
 }
 
 inline bool SaveSettings(const AppSettings& settings) {
@@ -93,6 +107,7 @@ inline bool SaveSettings(const AppSettings& settings) {
   std::fprintf(file, "vsync=%d\n", settings.vsync ? 1 : 0);
   std::fprintf(file, "brightness=%g\n", settings.brightness);
   std::fprintf(file, "msaa=%d\n", settings.msaa_samples);
+  std::fprintf(file, "hud_refresh=%g\n", settings.hud_refresh_sec);
   std::fclose(file);
   return true;
 }
@@ -140,6 +155,8 @@ inline bool LoadSettings(AppSettings& settings) {
         loaded.brightness = std::stof(value);
       } else if (key == "msaa" || key == "msaa_samples") {
         loaded.msaa_samples = std::stoi(value);
+      } else if (key == "hud_refresh" || key == "hud_refresh_sec") {
+        loaded.hud_refresh_sec = std::stof(value);
       }
     } catch (...) {
       // Ignore malformed values and keep defaults/previous fields.

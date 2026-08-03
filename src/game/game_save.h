@@ -15,7 +15,7 @@
 namespace save_io {
 
 inline constexpr uint32_t kMagic = 0x4E465331u;  // "NF1S"
-inline constexpr uint32_t kVersion = 2u;
+inline constexpr uint32_t kVersion = 4u;
 inline constexpr uint8_t kXorKey[8] = {0xA5, 0x3C, 0x77, 0x19,
                                        0xE2, 0x5B, 0x91, 0x0D};
 
@@ -31,6 +31,23 @@ inline std::wstring GameSavePath() {
     return L"save.dat";
   }
   return path.substr(0, slash + 1) + L"save.dat";
+}
+
+inline bool SaveExists() {
+  FILE* file = _wfopen(GameSavePath().c_str(), L"rb");
+  if (!file) {
+    return false;
+  }
+  std::fclose(file);
+  return true;
+}
+
+inline bool DeleteSave() {
+  const std::wstring path = GameSavePath();
+  if (DeleteFileW(path.c_str())) {
+    return true;
+  }
+  return GetLastError() == ERROR_FILE_NOT_FOUND;
 }
 
 inline uint32_t Crc32(const uint8_t* data, size_t size) {
@@ -90,11 +107,22 @@ struct Reader {
     if (!Read(n) || static_cast<size_t>(end - p) < n) {
       return false;
     }
-    s.assign(reinterpret_cast<const char*>(p), reinterpret_cast<const char*>(p) + n);
+    s.assign(reinterpret_cast<const char*>(p),
+             reinterpret_cast<const char*>(p) + n);
     p += n;
     return true;
   }
 };
+
+inline StarType ClampStarType(int32_t raw) {
+  if (raw < 0) {
+    return StarType::BrownDwarf;
+  }
+  if (raw > static_cast<int32_t>(StarType::NeutronStar)) {
+    return StarType::NeutronStar;
+  }
+  return static_cast<StarType>(raw);
+}
 
 }  // namespace save_io
 
@@ -104,18 +132,15 @@ inline bool SaveGame(const GameState& g) {
   w.Write(kMagic);
   w.Write(kVersion);
 
+  // Resources + prestige; derived combat/EPS stats are recomputed from upgrades.
   w.Write(g.energy);
   w.Write(g.protons);
   w.Write(g.neutrons);
   w.Write(g.electrons);
   w.Write(g.star_dust);
-  w.Write(g.click_power);
-  w.Write(g.crit_chance);
-  w.Write(g.crit_multiplier);
-  w.Write(g.auto_eps);
-  w.Write(g.auto_click_mult);
-  w.Write(g.annihilation_mult);
   w.Write(static_cast<int32_t>(g.star_type));
+  w.Write(static_cast<int32_t>(g.craft_batch));
+  w.Write(static_cast<int32_t>(g.buy_batch));
 
   w.Write(static_cast<uint32_t>(g.elements.size()));
   for (const auto& el : g.elements) {
@@ -123,8 +148,6 @@ inline bool SaveGame(const GameState& g) {
     w.Write(el.atom_count);
     w.Write(el.nucleus_count);
     w.Write(el.isotope_count);
-    w.Write(el.k_eff_base);
-    w.Write(el.mutation_chance);
     w.Write(static_cast<uint8_t>(el.unlocked ? 1 : 0));
     w.Write(static_cast<uint8_t>(el.isotope_discovered ? 1 : 0));
   }
@@ -144,8 +167,7 @@ inline bool SaveGame(const GameState& g) {
   if (!file) {
     return false;
   }
-  const size_t written =
-      std::fwrite(w.data.data(), 1, w.data.size(), file);
+  const size_t written = std::fwrite(w.data.data(), 1, w.data.size(), file);
   std::fclose(file);
   return written == w.data.size();
 }
@@ -181,8 +203,7 @@ inline bool LoadGame(GameState& g) {
   uint32_t stored_crc = 0;
   std::memcpy(&stored_crc, buf.data() + buf.size() - sizeof(uint32_t),
               sizeof(uint32_t));
-  const uint32_t calc =
-      Crc32(buf.data(), buf.size() - sizeof(uint32_t));
+  const uint32_t calc = Crc32(buf.data(), buf.size() - sizeof(uint32_t));
   if (stored_crc != calc) {
     return false;
   }
@@ -191,7 +212,7 @@ inline bool LoadGame(GameState& g) {
   uint32_t magic = 0;
   uint32_t version = 0;
   if (!r.Read(magic) || magic != kMagic || !r.Read(version) ||
-      version != kVersion) {
+      (version != 2u && version != 3u && version != 4u)) {
     return false;
   }
 
@@ -199,15 +220,43 @@ inline bool LoadGame(GameState& g) {
     g.InitNewGame();
   }
 
+  auto clamp_batch = [](int32_t raw) -> CraftBatch {
+    if (raw < 0 || raw > static_cast<int32_t>(CraftBatch::Max)) {
+      return CraftBatch::x1;
+    }
+    return static_cast<CraftBatch>(raw);
+  };
+
   int32_t star_type = 0;
-  if (!r.Read(g.energy) || !r.Read(g.protons) || !r.Read(g.neutrons) ||
-      !r.Read(g.electrons) || !r.Read(g.star_dust) || !r.Read(g.click_power) ||
-      !r.Read(g.crit_chance) || !r.Read(g.crit_multiplier) ||
-      !r.Read(g.auto_eps) || !r.Read(g.auto_click_mult) ||
-      !r.Read(g.annihilation_mult) || !r.Read(star_type)) {
-    return false;
+  if (version >= 3u) {
+    int32_t craft_batch = 0;
+    int32_t buy_batch = 0;
+    if (!r.Read(g.energy) || !r.Read(g.protons) || !r.Read(g.neutrons) ||
+        !r.Read(g.electrons) || !r.Read(g.star_dust) || !r.Read(star_type) ||
+        !r.Read(craft_batch)) {
+      return false;
+    }
+    if (version >= 4u) {
+      if (!r.Read(buy_batch)) {
+        return false;
+      }
+    }
+    g.star_type = ClampStarType(star_type);
+    g.craft_batch = clamp_batch(craft_batch);
+    g.buy_batch = version >= 4u ? clamp_batch(buy_batch) : CraftBatch::x1;
+  } else {
+    // v2: skip obsolete derived stats + keff/mutation fields.
+    double discard = 0.0;
+    if (!r.Read(g.energy) || !r.Read(g.protons) || !r.Read(g.neutrons) ||
+        !r.Read(g.electrons) || !r.Read(g.star_dust) || !r.Read(discard) ||
+        !r.Read(discard) || !r.Read(discard) || !r.Read(discard) ||
+        !r.Read(discard) || !r.Read(discard) || !r.Read(star_type)) {
+      return false;
+    }
+    g.star_type = ClampStarType(star_type);
+    g.craft_batch = CraftBatch::x1;
+    g.buy_batch = CraftBatch::x1;
   }
-  g.star_type = static_cast<StarType>(star_type);
 
   uint32_t el_count = 0;
   if (!r.Read(el_count)) {
@@ -215,12 +264,20 @@ inline bool LoadGame(GameState& g) {
   }
   for (uint32_t i = 0; i < el_count; ++i) {
     std::string id;
-    double atoms = 0, nuclei = 0, isotopes = 0, keff = 0, mut = 0;
+    double atoms = 0, nuclei = 0, isotopes = 0;
     uint8_t unlocked = 0, discovered = 0;
-    if (!r.ReadString(id) || !r.Read(atoms) || !r.Read(nuclei) ||
-        !r.Read(isotopes) || !r.Read(keff) || !r.Read(mut) ||
-        !r.Read(unlocked) || !r.Read(discovered)) {
-      return false;
+    if (version >= 3u) {
+      if (!r.ReadString(id) || !r.Read(atoms) || !r.Read(nuclei) ||
+          !r.Read(isotopes) || !r.Read(unlocked) || !r.Read(discovered)) {
+        return false;
+      }
+    } else {
+      double keff = 0, mut = 0;
+      if (!r.ReadString(id) || !r.Read(atoms) || !r.Read(nuclei) ||
+          !r.Read(isotopes) || !r.Read(keff) || !r.Read(mut) ||
+          !r.Read(unlocked) || !r.Read(discovered)) {
+        return false;
+      }
     }
     Element* el = g.FindElement(id);
     if (!el) {
@@ -229,8 +286,6 @@ inline bool LoadGame(GameState& g) {
     el->atom_count = atoms;
     el->nucleus_count = nuclei;
     el->isotope_count = isotopes;
-    el->k_eff_base = keff;
-    el->mutation_chance = mut;
     el->unlocked = unlocked != 0;
     el->isotope_discovered = discovered != 0 || isotopes > 0.0;
   }
@@ -245,6 +300,13 @@ inline bool LoadGame(GameState& g) {
     if (!r.ReadString(id) || !r.Read(level)) {
       return false;
     }
+    if (level < 0) {
+      level = 0;
+    }
+    // Legacy single coil id → Helium coil.
+    if (id == "annihilation") {
+      id = "annihilation_Helium";
+    }
     for (auto& up : g.upgrades) {
       if (up.id == id) {
         up.level = level;
@@ -254,5 +316,6 @@ inline bool LoadGame(GameState& g) {
   }
 
   g.UnlockElementsForStar();
+  g.RecalculateFromUpgrades();
   return true;
 }

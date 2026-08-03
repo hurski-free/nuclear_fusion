@@ -3,6 +3,7 @@
 #include "simple_ui.h"
 #include "game/game_state.h"
 
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -25,10 +26,17 @@ struct AppSettings {
   float brightness = 1.f;
   // 1 = off, otherwise 2 / 4 / 8 (snapped by simple_ui).
   int msaa_samples = 4;
+  // How often HUD / Lab / Tech numeric labels refresh (seconds).
+  float hud_refresh_sec = 0.5f;
 };
 
 struct MsaaOption {
   int samples = 1;
+  std::wstring label;
+};
+
+struct HudRefreshOption {
+  float seconds = 0.5f;
   std::wstring label;
 };
 
@@ -57,6 +65,12 @@ struct AppState {
       {4, L"MSAA x4"},
       {8, L"MSAA x8"},
   };
+
+  std::vector<HudRefreshOption> hud_refresh_options = {
+      {0.25f, L"0.25 s"},
+      {0.5f, L"0.5 s"},
+      {1.0f, L"1 s"},
+  };
 };
 
 inline int FindResolutionIndex(const AppState& app, int width, int height) {
@@ -82,6 +96,19 @@ inline int FindMsaaIndex(const AppState& app, int samples) {
     }
   }
   return 0;
+}
+
+inline int FindHudRefreshIndex(const AppState& app, float seconds) {
+  int best = 1;  // default 0.5 s
+  float best_d = 1.0e9f;
+  for (int i = 0; i < static_cast<int>(app.hud_refresh_options.size()); ++i) {
+    const float d = std::fabs(app.hud_refresh_options[i].seconds - seconds);
+    if (d < best_d) {
+      best_d = d;
+      best = i;
+    }
+  }
+  return best;
 }
 
 inline void RequestScene(AppState& app, SceneId id) {

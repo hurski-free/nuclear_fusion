@@ -2,32 +2,52 @@
 
 #include "simple_ui.h"
 
-// CRT / terminal console palette for Star Clicker.
+// CRT / terminal console palette for Nuclear Fusion.
+inline const FontAtlas*& UiFontSlot() {
+  static const FontAtlas* font = nullptr;
+  return font;
+}
+
+inline const FontAtlas* UiFont() { return UiFontSlot(); }
+
+inline void SetUiFont(const FontAtlas* font) { UiFontSlot() = font; }
+
+inline void ApplyUiFont(Component& c) {
+  if (UiFont()) {
+    c.font = UiFont();
+  }
+}
+
+inline Color ColorProton() { return {1.f, 0.35f, 0.3f, 1.f}; }
+inline Color ColorNeutron() { return {0.4f, 0.6f, 1.f, 1.f}; }
+inline Color ColorElectron() { return {1.f, 0.88f, 0.28f, 1.f}; }
+inline Color ColorPhosphor() { return {0.45f, 1.f, 0.55f, 1.f}; }
+
 inline UiStylePresets MakeConsoleStylePresets() {
   UiStylePresets p{};
 
   const Color phosphor{0.35f, 1.f, 0.45f, 1.f};
   const Color phosphor_dim{0.18f, 0.55f, 0.28f, 1.f};
   const Color phosphor_hot{0.65f, 1.f, 0.7f, 1.f};
-  const Color panel_bg{0.02f, 0.05f, 0.03f, 0.92f};
+  const Color panel_bg{0.015f, 0.045f, 0.028f, 0.94f};
   const Color btn_base{0.02f, 0.14f, 0.06f, 1.f};
   const Color btn_hover{0.06f, 0.32f, 0.14f, 1.f};
   const Color btn_active{0.12f, 0.5f, 0.22f, 1.f};
-  const Color btn_disabled{0.04f, 0.08f, 0.05f, 0.45f};
+  const Color btn_disabled{0.10f, 0.10f, 0.10f, 0.35f};
   const Color border_base{0.35f, 0.9f, 0.45f, 1.f};
   const Color border_hover{0.55f, 1.f, 0.6f, 1.f};
   const Color border_active{0.8f, 1.f, 0.85f, 1.f};
   const Color track{0.08f, 0.16f, 0.1f, 1.f};
   const Color thumb{0.3f, 0.85f, 0.4f, 1.f};
 
-  p.component.font_size = 20.f;
+  p.component.font_size = 24.f;
   p.component.transition.background_duration = 0.18f;
   p.component.transition.border_duration = 0.14f;
 
   Border in_border{2.f, BorderMode::In, border_base};
   Border in_border_hover{2.f, BorderMode::In, border_hover};
   Border in_border_active{2.f, BorderMode::In, border_active};
-  Border in_border_disabled{2.f, BorderMode::In, phosphor_dim};
+  Border in_border_disabled{2.f, BorderMode::In, Color{0.3f, 0.3f, 0.3f, 0.7f}};
 
   p.button.width = 240.f;
   p.button.height = 48.f;
@@ -95,6 +115,18 @@ inline UiStylePresets MakeConsoleStylePresets() {
   p.panel.style_active = {panel_bg, in_border};
   p.panel.style_disabled = {panel_bg, in_border_disabled};
 
+  p.modal.width = 980.f;
+  p.modal.height = 720.f;
+  p.modal.title_height = 40.f;
+  p.modal.layer = 100;
+  p.modal.overlay_color = {0.f, 0.f, 0.f, 0.72f};
+  p.modal.title_color = phosphor;
+  p.modal.title_bar_color = {0.03f, 0.12f, 0.06f, 1.f};
+  p.modal.style_base = {panel_bg, in_border};
+  p.modal.style_hovered = p.modal.style_base;
+  p.modal.style_active = p.modal.style_base;
+  p.modal.style_disabled = p.modal.style_base;
+
   p.container.style_base = {Color{0.f, 0.f, 0.f, 0.f}, Border{}};
   p.container.style_hovered = p.container.style_base;
   p.container.style_active = p.container.style_base;
@@ -111,22 +143,22 @@ inline Color ConsoleClearColor() {
 
 inline void ApplyConsoleButtonStyle(Button& btn, float width = 240.f,
                                     float height = 48.f) {
-  const Color phosphor{0.45f, 1.f, 0.55f, 1.f};
+  const Color phosphor = ColorPhosphor();
   const Color btn_base{0.02f, 0.16f, 0.07f, 1.f};
   const Color btn_hover{0.08f, 0.36f, 0.16f, 1.f};
   const Color btn_active{0.14f, 0.55f, 0.24f, 1.f};
-  const Color btn_disabled{0.04f, 0.08f, 0.05f, 0.45f};
+  const Color btn_disabled{0.12f, 0.12f, 0.12f, 0.32f};
   const Border in_border{2.f, BorderMode::In, Color{0.35f, 0.9f, 0.45f, 1.f}};
   const Border in_border_hover{2.f, BorderMode::In,
                                Color{0.55f, 1.f, 0.6f, 1.f}};
   const Border in_border_active{2.f, BorderMode::In,
                                 Color{0.85f, 1.f, 0.9f, 1.f}};
-  const Border in_border_disabled{2.f, BorderMode::In,
-                                  Color{0.18f, 0.55f, 0.28f, 1.f}};
+  const Border in_border_disabled{1.5f, BorderMode::In,
+                                  Color{0.35f, 0.35f, 0.35f, 0.55f}};
 
   btn.width = width;
   btn.height = height;
-  btn.font_size = 20.f;
+  btn.font_size = 24.f;
   btn.text_color = phosphor;
   btn.style_base = {btn_base, in_border};
   btn.style_hovered = {btn_hover, in_border_hover};
@@ -134,6 +166,7 @@ inline void ApplyConsoleButtonStyle(Button& btn, float width = 240.f,
   btn.style_disabled = {btn_disabled, in_border_disabled};
   btn.transition.background_duration = 0.18f;
   btn.transition.border_duration = 0.14f;
+  ApplyUiFont(btn);
 }
 
 inline void MakeFullscreenBackground(Image& image, int texture_id) {
@@ -145,4 +178,18 @@ inline void MakeFullscreenBackground(Image& image, int texture_id) {
   image.style_active = image.style_base;
   image.style_disabled = image.style_base;
   image.transition = {};
+}
+
+inline void StyleCardPanel(Panel& panel) {
+  panel.title.clear();
+  panel.draggable = false;
+  panel.closable = false;
+  panel.title_height = 0.f;
+  panel.layer = 0;
+  panel.style_base = {
+      Color{0.02f, 0.07f, 0.04f, 0.88f},
+      Border{1.5f, BorderMode::In, Color{0.22f, 0.65f, 0.32f, 0.95f}}};
+  panel.style_hovered = panel.style_base;
+  panel.style_active = panel.style_base;
+  panel.style_disabled = panel.style_base;
 }

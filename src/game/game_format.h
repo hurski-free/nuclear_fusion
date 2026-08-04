@@ -96,16 +96,25 @@ struct ElementRow {
   int element_index = -1;
 };
 
+struct TechCostLine {
+  Image icon{};
+  Label amount{};
+};
+
 struct UpgradeRow {
+  static constexpr int kMaxCosts = 6;
   Panel card{};
   Image icon{};
   Button icon_hit{};
   Label title{};
   Text desc{};
+  Label cost_label{};
+  TechCostLine costs[kMaxCosts]{};
   Button buy{};
   Image grade_icon{};
   Label grade_label{};
   int upgrade_index = -1;
+  int cost_count = 0;
 };
 
 struct FloatText {

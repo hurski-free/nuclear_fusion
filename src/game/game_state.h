@@ -192,12 +192,12 @@ struct GameState {
         1.6, UpgradeEffect::IsotopeEpsMult, 0.60, 0});
 
     list.push_back(UpgradeDef{
-        "nuc_Nickel", L"Nickel Core", L"+220 eV click power",
+        "nuc_Nickel", L"Nickel Core", L"+350 eV click power",
         {{ResourceKind::Nucleus, "Nickel", 5}}, 1.5, UpgradeEffect::ClickPower,
-        220.0, 0});
+        350.0, 0});
     list.push_back(UpgradeDef{
-        "atom_Nickel", L"Nickel Stack", L"+150 EPS",
-        {{ResourceKind::Atom, "Nickel", 5}}, 1.5, UpgradeEffect::AutoEps, 150.0,
+        "atom_Nickel", L"Nickel Stack", L"+250 EPS",
+        {{ResourceKind::Atom, "Nickel", 5}}, 1.5, UpgradeEffect::AutoEps, 250.0,
         0});
     list.push_back(UpgradeDef{
         "annihilation_Nickel", L"Ni Annihilation Coil",
@@ -207,12 +207,12 @@ struct GameState {
         1.6, UpgradeEffect::IsotopeEpsMult, 0.70, 0});
 
     list.push_back(UpgradeDef{
-        "nuc_Silver", L"Silver Core", L"+280 eV click power",
+        "nuc_Silver", L"Silver Core", L"+1000 eV click power",
         {{ResourceKind::Nucleus, "Silver", 5}}, 1.5, UpgradeEffect::ClickPower,
-        280.0, 0});
+        1000.0, 0});
     list.push_back(UpgradeDef{
-        "atom_Silver", L"Silver Circuit", L"+200 EPS",
-        {{ResourceKind::Atom, "Silver", 5}}, 1.5, UpgradeEffect::AutoEps, 200.0,
+        "atom_Silver", L"Silver Circuit", L"+700 EPS",
+        {{ResourceKind::Atom, "Silver", 5}}, 1.5, UpgradeEffect::AutoEps, 700.0,
         0});
     list.push_back(UpgradeDef{
         "annihilation_Silver", L"Ag Annihilation Coil",
@@ -222,12 +222,12 @@ struct GameState {
         1.6, UpgradeEffect::IsotopeEpsMult, 0.80, 0});
 
     list.push_back(UpgradeDef{
-        "nuc_Xenon", L"Xenon Core", L"+340 eV click power",
+        "nuc_Xenon", L"Xenon Core", L"+5000 eV click power",
         {{ResourceKind::Nucleus, "Xenon", 5}}, 1.5, UpgradeEffect::ClickPower,
-        340.0, 0});
+        5000.0, 0});
     list.push_back(UpgradeDef{
-        "atom_Xenon", L"Xenon Chamber", L"+250 EPS",
-        {{ResourceKind::Atom, "Xenon", 5}}, 1.5, UpgradeEffect::AutoEps, 250.0,
+        "atom_Xenon", L"Xenon Chamber", L"+3500 EPS",
+        {{ResourceKind::Atom, "Xenon", 5}}, 1.5, UpgradeEffect::AutoEps, 3500.0,
         0});
     list.push_back(UpgradeDef{
         "annihilation_Xenon", L"Xe Annihilation Coil",
@@ -237,12 +237,12 @@ struct GameState {
         1.6, UpgradeEffect::IsotopeEpsMult, 0.90, 0});
 
     list.push_back(UpgradeDef{
-        "nuc_Gold", L"Gold Core", L"+400 eV click power",
+        "nuc_Gold", L"Gold Core", L"+10000 eV click power",
         {{ResourceKind::Nucleus, "Gold", 5}}, 1.5, UpgradeEffect::ClickPower,
-        400.0, 0});
+        10000.0, 0});
     list.push_back(UpgradeDef{
-        "atom_Gold", L"Gold Dynamo", L"+300 EPS",
-        {{ResourceKind::Atom, "Gold", 5}}, 1.5, UpgradeEffect::AutoEps, 300.0,
+        "atom_Gold", L"Gold Dynamo", L"+7000 EPS",
+        {{ResourceKind::Atom, "Gold", 5}}, 1.5, UpgradeEffect::AutoEps, 7000.0,
         0});
     list.push_back(UpgradeDef{
         "annihilation_Gold", L"Au Annihilation Coil",

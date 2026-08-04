@@ -208,7 +208,8 @@ private:
     canvas_scene_ = Scene{};
     ui_scene_ = Scene{};
     element_rows_.assign(kMaxElementRows, {});
-    upgrade_rows_.assign(kMaxUpgradeRows, {});
+    upgrade_rows_.clear();
+    upgrade_rows_.resize(kMaxUpgradeRows);
     float_texts_.assign(kMaxFloatTexts, {});
 
     const int w = ui_get_width(app.ctx);
@@ -539,6 +540,25 @@ private:
       row.desc.height = 110.f;
       row.desc.layer = 1;
       ApplyUiFont(row.desc);
+      row.cost_label.font_size = 18.f;
+      row.cost_label.color = {0.55f, 0.95f, 0.65f, 1.f};
+      row.cost_label.width = 80.f;
+      row.cost_label.height = 24.f;
+      row.cost_label.layer = 1;
+      row.cost_label.text = L"Cost:";
+      ApplyUiFont(row.cost_label);
+      for (int c = 0; c < game_ui::UpgradeRow::kMaxCosts; ++c) {
+        auto& line = row.costs[c];
+        game_ui::ClearImageStyle(line.icon);
+        line.icon.width = line.icon.height = 36.f;
+        line.icon.layer = 1;
+        line.amount.font_size = 18.f;
+        line.amount.color = {0.55f, 0.95f, 0.65f, 1.f};
+        line.amount.width = 120.f;
+        line.amount.height = 36.f;
+        line.amount.layer = 1;
+        ApplyUiFont(line.amount);
+      }
       ApplyConsoleButtonStyle(row.buy, 160.f, 44.f);
       row.buy.text = L"Buy";
       row.buy.font_size = 22.f;
@@ -558,7 +578,7 @@ private:
       };
       game_ui::ClearImageStyle(row.grade_icon);
       row.grade_icon.texture_id = assets_.grade;
-      row.grade_icon.width = row.grade_icon.height = 28.f;
+      row.grade_icon.width = row.grade_icon.height = 32.f;
       row.grade_icon.layer = 2;
       row.grade_icon.tint = {1.f, 1.f, 1.f, 1.f};
       StyleHudLabel(row.grade_label, 16.f);
@@ -571,6 +591,11 @@ private:
       tech_scroll_.components.push_back(&row.icon_hit);
       tech_scroll_.components.push_back(&row.title);
       tech_scroll_.components.push_back(&row.desc);
+      tech_scroll_.components.push_back(&row.cost_label);
+      for (int c = 0; c < game_ui::UpgradeRow::kMaxCosts; ++c) {
+        tech_scroll_.components.push_back(&row.costs[c].icon);
+        tech_scroll_.components.push_back(&row.costs[c].amount);
+      }
       tech_scroll_.components.push_back(&row.buy);
       tech_scroll_.components.push_back(&row.grade_icon);
       tech_scroll_.components.push_back(&row.grade_label);
@@ -741,8 +766,9 @@ private:
         L"Order: Electron Lens (EPS) -> Proton Injector (click) -> Neutron "
         L"Channel (crit %, starts at 0%, caps at 100%).\n"
         L"Then per element: nucleus (click), atom (EPS), isotope coil.\n"
-        L"At levels 10, 25, 50, 100, then every +100, Click / EPS / isotope "
-        L"coils gain a grade multiplier (x2, x4, x8, ...).\n"
+        L"At levels 10, 25, 50, 100, then every +100, Click / EPS gain a "
+        L"grade multiplier (x10, x100, ...); isotope coils use x2, x4, "
+        L"x8, ...\n"
         L"Critical Cascade (+1 crit mult) costs atoms H..Fe; Quantum "
         L"Processor is late multi-cost.",
         {1.f, 1.f, 1.f, 1.f}, 120.f);
@@ -1241,6 +1267,28 @@ private:
     }
   }
 
+  int CostResourceIcon(ResourceKind kind) const {
+    switch (kind) {
+      case ResourceKind::Energy:
+        return assets_.energy;
+      case ResourceKind::Proton:
+        return assets_.proton;
+      case ResourceKind::Neutron:
+        return assets_.neutron;
+      case ResourceKind::Electron:
+        return assets_.electron;
+      case ResourceKind::Nucleus:
+        return assets_.nucleus;
+      case ResourceKind::Atom:
+        return assets_.atom;
+      case ResourceKind::Isotope:
+        return assets_.isotope;
+      case ResourceKind::StarDust:
+        return assets_.supernova;
+    }
+    return -1;
+  }
+
   void RefreshUpgradeRows() {
     visible_upgrade_indices_.clear();
     for (int i = 0; i < static_cast<int>(G().upgrades.size()); ++i) {
@@ -1258,16 +1306,27 @@ private:
       row.icon_hit.disabled = !active;
       row.title.disabled = !active;
       row.desc.disabled = !active;
+      row.cost_label.disabled = !active;
       row.buy.disabled = !active;
       row.grade_icon.disabled = !active;
       row.grade_label.disabled = !active;
+      for (int c = 0; c < game_ui::UpgradeRow::kMaxCosts; ++c) {
+        row.costs[c].icon.disabled = !active;
+        row.costs[c].amount.disabled = !active;
+      }
       if (!active) {
         row.icon.texture_id = -1;
         row.title.text.clear();
         row.desc.text.clear();
+        row.cost_label.text.clear();
         row.grade_label.text.clear();
         row.grade_icon.texture_id = -1;
         row.upgrade_index = -1;
+        row.cost_count = 0;
+        for (int c = 0; c < game_ui::UpgradeRow::kMaxCosts; ++c) {
+          row.costs[c].icon.texture_id = -1;
+          row.costs[c].amount.text.clear();
+        }
         continue;
       }
 
@@ -1289,43 +1348,38 @@ private:
         row.grade_label.text.clear();
       }
 
-      std::wstringstream desc;
-      desc << up.description << L"\nCost: ";
-      for (size_t c = 0; c < up.base_costs.size(); ++c) {
-        if (c) {
-          desc << L"\n";
+      row.desc.text = up.description;
+      row.cost_label.text = L"Cost:";
+      row.cost_count = std::min(game_ui::UpgradeRow::kMaxCosts,
+                                static_cast<int>(up.base_costs.size()));
+      for (int c = 0; c < game_ui::UpgradeRow::kMaxCosts; ++c) {
+        auto& line = row.costs[c];
+        if (c >= row.cost_count) {
+          line.icon.texture_id = -1;
+          line.amount.text.clear();
+          continue;
         }
         const auto& cost = up.base_costs[c];
         const double amt = G().ScaledCostAmount(up, cost);
-        desc << game_ui::FormatInt(amt) << L" ";
-        switch (cost.kind) {
-          case ResourceKind::Energy:
-            desc << L"E";
-            break;
-          case ResourceKind::Proton:
-            desc << L"p";
-            break;
-          case ResourceKind::Neutron:
-            desc << L"n";
-            break;
-          case ResourceKind::Electron:
-            desc << L"e";
-            break;
-          case ResourceKind::Nucleus:
-            desc << L"nuc(" << ElementSymbol(cost.element_id) << L")";
-            break;
-          case ResourceKind::Atom:
-            desc << L"atom(" << ElementSymbol(cost.element_id) << L")";
-            break;
-          case ResourceKind::Isotope:
-            desc << L"iso(" << ElementSymbol(cost.element_id) << L")";
-            break;
-          case ResourceKind::StarDust:
-            desc << L"dust";
-            break;
+        if (cost.kind == ResourceKind::Atom) {
+          // Element art from images/elements — no symbol suffix.
+          line.icon.texture_id = assets_.ElementIcon(cost.element_id);
+          line.amount.text = game_ui::FormatInt(amt);
+        } else {
+          line.icon.texture_id = CostResourceIcon(cost.kind);
+          std::wstringstream amt_ss;
+          if (cost.kind == ResourceKind::Nucleus ||
+              cost.kind == ResourceKind::Isotope) {
+            // [icon] (El) amount
+            amt_ss << L"(" << ElementSymbol(cost.element_id) << L") "
+                   << game_ui::FormatInt(amt);
+          } else {
+            // [icon] amount
+            amt_ss << game_ui::FormatInt(amt);
+          }
+          line.amount.text = amt_ss.str();
         }
       }
-      row.desc.text = desc.str();
       row.buy.disabled = !G().CanAffordUpgrade(up);
     }
   }
@@ -1386,7 +1440,10 @@ private:
     if (UpgradeUsesGrade(up.effect)) {
       const int grade = UpgradeGrade(up.level);
       if (grade > 0) {
-        ss << L"  (grade x" << grade << L")";
+        ss << L"  (grade x"
+           << game_ui::FormatInt(UpgradeGradeMultiplier(
+                  grade, UpgradeGradeBase(up.effect)))
+           << L")";
       }
     }
     return ss.str();
@@ -1813,16 +1870,20 @@ private:
     const float content_top = title_.y + kHeaderH + 4.f;
     const float content_w = w - kMargin * 2.f;
 
-    float side_w = std::clamp(content_w * 0.30f, 300.f, 460.f);
-    float center_w = content_w - side_w * 2.f - kGap * 2.f;
+    float tech_w = std::clamp(content_w * 0.30f, 300.f, 460.f);
+    float lab_w = tech_w * 1.2f;  // Lab is 20% wider than Tech.
+    float center_w = content_w - lab_w - tech_w - kGap * 2.f;
     if (center_w < 300.f) {
-      side_w = std::max(260.f, (content_w - 300.f - kGap * 2.f) * 0.5f);
-      center_w = content_w - side_w * 2.f - kGap * 2.f;
+      const float available =
+          std::max(0.f, content_w - 300.f - kGap * 2.f);
+      tech_w = std::max(240.f, available / 2.2f);
+      lab_w = tech_w * 1.2f;
+      center_w = content_w - lab_w - tech_w - kGap * 2.f;
     }
     center_w = std::max(260.f, center_w);
 
     const float left_x = kMargin;
-    const float center_x = left_x + side_w + kGap;
+    const float center_x = left_x + lab_w + kGap;
     const float right_x = center_x + center_w + kGap;
 
     // Lab / Tech titles on their own row; Lab batch radios on the next row so
@@ -1844,7 +1905,7 @@ private:
     lab_batch_.x = lab_batch_label_.x + lab_batch_label_.width + 8.f;
     lab_batch_.y = batch_row_y;
     const float lab_batch_max_w =
-        std::max(200.f, side_w - lab_batch_label_.width - 20.f);
+        std::max(200.f, lab_w - lab_batch_label_.width - 20.f);
     lab_batch_.item_width =
         std::clamp(lab_batch_max_w / 4.f - lab_batch_.gap, 72.f, 96.f);
 
@@ -1853,13 +1914,13 @@ private:
 
     lab_scroll_.x = left_x;
     lab_scroll_.y = panels_top;
-    lab_scroll_.width = side_w;
+    lab_scroll_.width = lab_w;
     lab_scroll_.height = panels_h;
     lab_scroll_.disabled = false;
 
     tech_scroll_.x = right_x;
     tech_scroll_.y = panels_top;
-    tech_scroll_.width = side_w;
+    tech_scroll_.width = tech_w;
     tech_scroll_.height = panels_h;
     tech_scroll_.disabled = false;
 
@@ -2028,7 +2089,7 @@ private:
       sn_help_btn_.y = star_center_y_ - half - sn_help_btn_.height - 8.f;
     }
 
-    const float lab_inner_w = std::max(180.f, side_w - 24.f);
+    const float lab_inner_w = std::max(180.f, lab_w - 24.f);
     const float btn_w = std::max(100.f, (lab_inner_w - 8.f) * 0.5f);
     const float btn_gap = 8.f;
     const float craft_x0 = 8.f;
@@ -2120,7 +2181,7 @@ private:
       y += kCardH + 12.f;
     }
 
-    const float tech_inner_w = std::max(160.f, side_w - 24.f);
+    const float tech_inner_w = std::max(160.f, tech_w - 24.f);
     const float tech_buy_w = std::min(180.f, tech_inner_w);
     constexpr float kUpIcon = 48.f;
     constexpr float kUpIconGap = 12.f;
@@ -2139,20 +2200,24 @@ private:
         Hide(row.icon_hit);
         Hide(row.title);
         Hide(row.desc);
+        Hide(row.cost_label);
+        for (int c = 0; c < game_ui::UpgradeRow::kMaxCosts; ++c) {
+          Hide(row.costs[c].icon);
+          Hide(row.costs[c].amount);
+        }
         Hide(row.buy);
         Hide(row.grade_icon);
         Hide(row.grade_label);
         continue;
       }
-      const int up_i = visible_upgrade_indices_[i];
-      const int cost_n =
-          (up_i >= 0 && up_i < static_cast<int>(G().upgrades.size()))
-              ? std::max(1, static_cast<int>(G().upgrades[up_i].base_costs.size()))
-              : 1;
-      // description line + one line per cost entry
-      const float desc_h = kUpLineH + cost_n * kUpLineH;
+      const int cost_n = std::max(1, row.cost_count);
+      constexpr float kCostIcon = 36.f;
+      constexpr float kCostLineH = 36.f;
+      constexpr float kGradeIcon = 32.f;
+      const float desc_h = kUpLineH;
+      const float cost_block_h = kUpLineH + cost_n * kCostLineH;
       const float card_h =
-          kUpPad + kUpTitleH + desc_h + 8.f + kUpBuyH + kUpPad;
+          kUpPad + kUpTitleH + desc_h + cost_block_h + 8.f + kUpBuyH + kUpPad;
 
       const float text_x = 14.f + kUpIcon + kUpIconGap;
       const float text_w =
@@ -2177,8 +2242,31 @@ private:
       row.title.y = y + kUpPad - 2.f;
       row.desc.x = text_x;
       row.desc.y = y + kUpPad + kUpTitleH;
+
+      row.cost_label.width = 64.f;
+      row.cost_label.height = kUpLineH;
+      row.cost_label.x = text_x;
+      row.cost_label.y = row.desc.y + desc_h;
+      for (int c = 0; c < game_ui::UpgradeRow::kMaxCosts; ++c) {
+        auto& line = row.costs[c];
+        if (c >= row.cost_count) {
+          Hide(line.icon);
+          Hide(line.amount);
+          continue;
+        }
+        // Same rect height as icon so LeftMiddle centers amount text.
+        const float cy = row.cost_label.y + kUpLineH + c * kCostLineH;
+        line.icon.width = line.icon.height = kCostIcon;
+        line.icon.x = text_x;
+        line.icon.y = cy;
+        line.amount.width = text_w - kCostIcon - 6.f;
+        line.amount.height = kCostLineH;
+        line.amount.x = text_x + kCostIcon + 6.f;
+        line.amount.y = cy;
+      }
+
       row.buy.x = text_x;
-      row.buy.y = row.desc.y + desc_h + 8.f;
+      row.buy.y = row.cost_label.y + cost_block_h + 8.f;
 
       const int grade =
           (row.upgrade_index >= 0 &&
@@ -2187,8 +2275,8 @@ private:
               ? UpgradeGrade(G().upgrades[row.upgrade_index].level)
               : 0;
       if (grade > 0) {
-        row.grade_icon.width = row.grade_icon.height = 28.f;
-        row.grade_icon.x = row.card.x + row.card.width - 36.f;
+        row.grade_icon.width = row.grade_icon.height = kGradeIcon;
+        row.grade_icon.x = row.card.x + row.card.width - kGradeIcon - 8.f;
         row.grade_icon.y = y + 8.f;
         row.grade_label.width = 40.f;
         row.grade_label.height = 20.f;

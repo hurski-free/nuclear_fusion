@@ -176,12 +176,12 @@ inline int UpgradeGrade(int level) {
   return 3 + level / 100;
 }
 
-// Extra effect multiplier from grade: 2^n (grade 0 → 1).
-inline double UpgradeGradeMultiplier(int grade) {
+// Extra effect multiplier from grade: base^n (grade 0 → 1).
+inline double UpgradeGradeMultiplier(int grade, double base = 10.0) {
   if (grade <= 0) {
     return 1.0;
   }
-  return std::pow(2.0, static_cast<double>(grade));
+  return std::pow(base, static_cast<double>(grade));
 }
 
 // Grades amplify click power, flat EPS, and isotope EPS multiplier upgrades.
@@ -189,6 +189,11 @@ inline bool UpgradeUsesGrade(UpgradeEffect effect) {
   return effect == UpgradeEffect::ClickPower ||
          effect == UpgradeEffect::AutoEps ||
          effect == UpgradeEffect::IsotopeEpsMult;
+}
+
+// Annihilation coils (isotope EPS) use 2^n; other graded upgrades use 10^n.
+inline double UpgradeGradeBase(UpgradeEffect effect) {
+  return effect == UpgradeEffect::IsotopeEpsMult ? 2.0 : 10.0;
 }
 
 struct Element {
@@ -224,7 +229,8 @@ inline double UpgradeScaledEffect(const UpgradeDef& up) {
   }
   const double grade_mult =
       UpgradeUsesGrade(up.effect)
-          ? UpgradeGradeMultiplier(UpgradeGrade(up.level))
+          ? UpgradeGradeMultiplier(UpgradeGrade(up.level),
+                                   UpgradeGradeBase(up.effect))
           : 1.0;
   return up.effect_per_level * static_cast<double>(up.level) * grade_mult;
 }

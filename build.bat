@@ -22,6 +22,8 @@ g++ -std=c++17 -O2 -finput-charset=UTF-8 -fexec-charset=UTF-8 ^
   -I "%LIB%" -I "%SRC%" ^
   -L "%LIB%" -lsimple_ui ^
   -ld3d11 -ldxgi -ld3dcompiler -lgdi32 -luser32 -lole32 -lwindowscodecs ^
+  -static-libgcc -static-libstdc++ ^
+  -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive,-Bdynamic ^
   -mwindows -municode
 
 if errorlevel 1 (

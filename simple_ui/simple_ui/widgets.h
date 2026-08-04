@@ -326,6 +326,9 @@ public:
   float width = 0.f;
   float height = 0.f;
   Color tint{};
+  // How the texture is sampled when drawn larger/smaller than its pixel size.
+  // ImageFilter::Linear (default) = smooth bilinear; Nearest = sharp pixels.
+  ImageFilter filter = ImageFilter::Linear;
   // UV rect in [0..1]. Default = full texture.
   float u0 = 0.f;
   float v0 = 0.f;

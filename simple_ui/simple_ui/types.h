@@ -24,10 +24,15 @@ enum class ScreenMode {
 // Initial window/display configuration passed to ui_create.
 struct ScreenSettings {
   ScreenMode screen_mode;
-  // Client size for Windowed; preferred buffer size hint for Fullscreen.
-  // Ignored for Borderless (monitor size is used).
+  // OS window / swap-chain size for Windowed; preferred buffer hint for
+  // Fullscreen. Ignored for Borderless (monitor size is used).
+  // Independent of resolution_* (the offscreen scene / UI coordinate space).
   int screen_width;
   int screen_height;
+  // Logical render resolution (scene RT + UI/mouse coordinates).
+  // 0 = match the window/swap-chain size at create time.
+  int resolution_width = 0;
+  int resolution_height = 0;
   // Multisample count for the offscreen scene target (1 = off). Typical: 2, 4, 8.
   // Clamped to device-supported values. Changeable later via ui_set_msaa_samples.
   int msaa_samples = 4;
@@ -41,8 +46,9 @@ struct Color {
   float a = 1.f;
 };
 
-// UI coordinate system: (0,0) is the top-left of the client area,
-// X increases right, Y increases down.
+// UI coordinate system: (0,0) is the top-left of the logical resolution
+// (scene texture), X increases right, Y increases down. Mouse positions are
+// scaled from the OS client area into this space.
 
 // Per-frame mouse snapshot. Edge flags (*_pressed / *_released) are valid
 // only until the next ui_process_messages call.
@@ -101,6 +107,16 @@ enum class TextAlign {
   LeftMiddle,  // Left-aligned, vertically centered in the rect.
 };
 
+// Texture sampling for Image (and any DrawCommandType::Image quad).
+// Controls how texels are interpolated when the quad is scaled.
+enum class ImageFilter {
+  // Nearest-neighbor (point) sampling. Sharp pixels; good for pixel art / icons
+  // that should not blur when upscaled or downscaled.
+  Nearest,
+  // Bilinear filtering (default). Smooth when scaled; softens edges.
+  Linear,
+};
+
 // Outline drawn around glyph silhouettes (Text / Label). thickness 0 = off.
 struct TextOutline {
   float thickness = 0.f;
@@ -124,6 +140,8 @@ struct DrawCommand {
   float v0 = 0.f;
   float u1 = 1.f;
   float v1 = 1.f;
+  // Image: texture filter (Nearest or Linear).
+  ImageFilter image_filter = ImageFilter::Linear;
   // RoundedRect: corner radius in pixels (clamped to half the shorter side).
   // Triangle: tip up when > 0; tip down when 0.
   float corner_radius = 0.f;

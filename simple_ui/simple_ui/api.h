@@ -36,17 +36,32 @@ SIMPLE_UI_API void ui_bind_scene_target(UiContext* ctx);
 SIMPLE_UI_API HWND ui_get_hwnd(const UiContext* ctx);
 SIMPLE_UI_API ID3D11Device* ui_get_device(const UiContext* ctx);
 SIMPLE_UI_API ID3D11DeviceContext* ui_get_device_context(const UiContext* ctx);
+
+// Logical resolution (= offscreen scene texture size and UI coordinate space).
+// Alias of ui_get_resolution_width / ui_get_resolution_height.
 SIMPLE_UI_API int ui_get_width(const UiContext* ctx);
 SIMPLE_UI_API int ui_get_height(const UiContext* ctx);
+
+// OS window / swap-chain backbuffer size (presentation size).
+SIMPLE_UI_API int ui_get_window_width(const UiContext* ctx);
+SIMPLE_UI_API int ui_get_window_height(const UiContext* ctx);
+
 SIMPLE_UI_API ScreenMode ui_get_screen_mode(const UiContext* ctx);
 
 // Switches display mode at runtime (recreates swap-chain buffers as needed).
+// Does not change logical resolution.
 SIMPLE_UI_API bool ui_set_screen_mode(UiContext* ctx, ScreenMode mode);
 
 // Preferred client size for Windowed mode (also stored when leaving Windowed so
 // returning to Windowed restores this size). When already Windowed, resizes the
-// window and swap-chain immediately.
+// window and swap-chain immediately. Does not change logical resolution.
 SIMPLE_UI_API bool ui_set_screen_size(UiContext* ctx, int width, int height);
+
+// Logical render resolution (scene RT + UI/mouse). Stretch-blitted to the
+// window/swap-chain. Does not resize the OS window.
+SIMPLE_UI_API bool ui_set_resolution(UiContext* ctx, int width, int height);
+SIMPLE_UI_API int ui_get_resolution_width(const UiContext* ctx);
+SIMPLE_UI_API int ui_get_resolution_height(const UiContext* ctx);
 
 // MSAA sample count for the offscreen scene texture (1 disables MSAA; the
 // scene is still rendered offscreen and blitted). Values are snapped to

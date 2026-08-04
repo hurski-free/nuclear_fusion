@@ -241,6 +241,8 @@ struct ImageStylePreset {
   float width = 64.f;
   float height = 64.f;
   Color tint{1.f, 1.f, 1.f, 1.f};
+  // Default sampling for Image components created while this preset is active.
+  ImageFilter filter = ImageFilter::Linear;
   ComponentStyle style_base{Color{0.f, 0.f, 0.f, 0.f}, Border{}};
   ComponentStyle style_hovered{Color{0.f, 0.f, 0.f, 0.f}, Border{}};
   ComponentStyle style_active{Color{0.f, 0.f, 0.f, 0.f}, Border{}};

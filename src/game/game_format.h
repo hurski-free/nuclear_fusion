@@ -58,16 +58,39 @@ inline void ClearImageStyle(Image& img) {
   img.style_disabled = img.style_base;
   img.transition = {};
   img.tint = {1.f, 1.f, 1.f, 1.f};
+  // Linear: smooth when scaled. Nearest makes 64px icons look blocky on screen.
+  img.filter = ImageFilter::Linear;
 }
+
+// Lab craft cost line: [result] = [a] N + [b] N + X eV
+struct CostFormula {
+  Image result{};
+  Label eq{};
+  Image a_icon{};
+  Label a_amt{};
+  Label plus1{};
+  Image b_icon{};
+  Label b_amt{};
+  Label plus2{};
+  Label energy{};
+};
 
 struct ElementRow {
   Panel card{};
   Image icon{};
+  Image nuc_icon{};
+  Image atom_icon{};
   Image iso_icon{};
+  Button nuc_hit{};
+  Button atom_hit{};
+  Button iso_hit{};
   Label name{};
+  Label nuc_count{};
+  Label atom_count{};
+  Label iso_count{};
   Label stats{};
-  Label cost_nucleus{};
-  Label cost_atom{};
+  CostFormula cost_nucleus{};
+  CostFormula cost_atom{};
   Button craft_nucleus{};
   Button craft_atom{};
   int element_index = -1;

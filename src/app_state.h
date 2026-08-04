@@ -4,6 +4,7 @@
 #include "game/game_state.h"
 
 #include <cmath>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -52,11 +53,33 @@ struct AppState {
   GameState game{};
   bool game_initialized = false;
 
+  // Logical render resolutions (independent of OS window size).
+  // Covers common 16:9 / 16:10 / ultrawide / 4:3 panels up to 8K.
   std::vector<ResolutionOption> resolutions = {
-      {1280, 720, L"1280 x 720"},
-      {1600, 900, L"1600 x 900"},
-      {1920, 1080, L"1920 x 1080"},
-      {2560, 1440, L"2560 x 1440"},
+      {1024, 768, L"1024 x 768 (4:3)"},
+      {1280, 720, L"1280 x 720 (16:9)"},
+      {1280, 800, L"1280 x 800 (16:10)"},
+      {1280, 1024, L"1280 x 1024 (5:4)"},
+      {1360, 768, L"1360 x 768 (16:9)"},
+      {1366, 768, L"1366 x 768 (16:9)"},
+      {1440, 900, L"1440 x 900 (16:10)"},
+      {1536, 864, L"1536 x 864 (16:9)"},
+      {1600, 900, L"1600 x 900 (16:9)"},
+      {1600, 1200, L"1600 x 1200 (4:3)"},
+      {1680, 1050, L"1680 x 1050 (16:10)"},
+      {1920, 1080, L"1920 x 1080 (16:9)"},
+      {1920, 1200, L"1920 x 1200 (16:10)"},
+      {2048, 1152, L"2048 x 1152 (16:9)"},
+      {2560, 1080, L"2560 x 1080 (21:9)"},
+      {2560, 1440, L"2560 x 1440 (16:9)"},
+      {2560, 1600, L"2560 x 1600 (16:10)"},
+      {2880, 1800, L"2880 x 1800 (16:10)"},
+      {3440, 1440, L"3440 x 1440 (21:9)"},
+      {3840, 1600, L"3840 x 1600 (21:9)"},
+      {3840, 2160, L"3840 x 2160 (16:9)"},
+      {5120, 1440, L"5120 x 1440 (32:9)"},
+      {5120, 2160, L"5120 x 2160 (21:9)"},
+      {7680, 4320, L"7680 x 4320 (16:9)"},
   };
 
   std::vector<MsaaOption> msaa_options = {
@@ -81,6 +104,32 @@ inline int FindResolutionIndex(const AppState& app, int width, int height) {
     }
   }
   return 0;
+}
+
+// Pick the listed resolution closest to the OS window, preferring options that
+// fit inside the window (typical first-launch / "match display" behavior).
+inline int FindResolutionIndexForWindow(const AppState& app, int window_w,
+                                        int window_h) {
+  if (app.resolutions.empty() || window_w <= 0 || window_h <= 0) {
+    return 0;
+  }
+
+  int best = 0;
+  long long best_score = (std::numeric_limits<long long>::max)();
+  for (int i = 0; i < static_cast<int>(app.resolutions.size()); ++i) {
+    const auto& r = app.resolutions[i];
+    const long long dw = static_cast<long long>(r.width) - window_w;
+    const long long dh = static_cast<long long>(r.height) - window_h;
+    long long score = dw * dw + dh * dh;
+    if (r.width <= window_w && r.height <= window_h) {
+      score -= (1LL << 40);
+    }
+    if (score < best_score) {
+      best_score = score;
+      best = i;
+    }
+  }
+  return best;
 }
 
 inline int FindMsaaIndex(const AppState& app, int samples) {

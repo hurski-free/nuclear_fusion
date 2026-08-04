@@ -69,6 +69,7 @@ public:
       RefreshLabels();
     }
     RefreshDynamicStyles();
+    AdvanceStockTipTimer(dt);
   }
 
   Scene& scene() override { return ui_scene_; }
@@ -375,7 +376,7 @@ private:
 
     game_ui::ClearImageStyle(icon_supernova_);
     icon_supernova_.texture_id = assets_.supernova;
-    icon_supernova_.width = icon_supernova_.height = 36.f;
+    icon_supernova_.width = icon_supernova_.height = 48.f;
     icon_supernova_.layer = 1;
 
     ApplyConsoleButtonStyle(supernova_, 180.f, 48.f);
@@ -410,9 +411,30 @@ private:
       game_ui::ClearImageStyle(row.icon);
       row.icon.width = row.icon.height = 40.f;
       row.icon.layer = 1;
-      game_ui::ClearImageStyle(row.iso_icon);
-      row.iso_icon.width = row.iso_icon.height = 28.f;
-      row.iso_icon.layer = 1;
+
+      auto setup_stock_icon = [](Image& img, int tex) {
+        game_ui::ClearImageStyle(img);
+        img.width = img.height = 64.f;
+        img.layer = 1;
+        img.texture_id = tex;
+      };
+      setup_stock_icon(row.nuc_icon, assets_.nucleus);
+      setup_stock_icon(row.atom_icon, assets_.atom);
+      setup_stock_icon(row.iso_icon, assets_.isotope);
+
+      auto setup_stock_hit = [](Button& hit) {
+        hit.width = hit.height = 64.f;
+        hit.layer = 2;
+        hit.text.clear();
+        hit.style_base = {Color{0.f, 0.f, 0.f, 0.f}, Border{}};
+        hit.style_hovered = hit.style_base;
+        hit.style_active = hit.style_base;
+        hit.style_disabled = hit.style_base;
+        hit.transition = {};
+      };
+      setup_stock_hit(row.nuc_hit);
+      setup_stock_hit(row.atom_hit);
+      setup_stock_hit(row.iso_hit);
 
       row.name.font_size = 28.f;
       row.name.color = {0.65f, 1.f, 0.72f, 1.f};
@@ -420,24 +442,30 @@ private:
       row.name.height = 34.f;
       row.name.layer = 1;
       ApplyUiFont(row.name);
-      row.stats.font_size = 22.f;
+
+      auto setup_stock_count = [this](Label& label) {
+        label.font_size = 22.f;
+        label.color = {0.55f, 0.95f, 0.65f, 1.f};
+        label.width = 72.f;
+        label.height = 64.f;
+        label.layer = 1;
+        ApplyUiFont(label);
+      };
+      setup_stock_count(row.nuc_count);
+      setup_stock_count(row.atom_count);
+      setup_stock_count(row.iso_count);
+
+      row.stats.font_size = 20.f;
       row.stats.color = {0.55f, 0.95f, 0.65f, 1.f};
       row.stats.width = 320.f;
-      row.stats.height = 56.f;
+      row.stats.height = 28.f;
       row.stats.layer = 1;
       ApplyUiFont(row.stats);
-      row.cost_nucleus.font_size = 20.f;
-      row.cost_nucleus.color = {0.75f, 1.f, 0.8f, 1.f};
-      row.cost_nucleus.width = 320.f;
-      row.cost_nucleus.height = 52.f;
-      row.cost_nucleus.layer = 1;
-      ApplyUiFont(row.cost_nucleus);
-      row.cost_atom.font_size = 20.f;
-      row.cost_atom.color = {0.7f, 0.95f, 0.78f, 1.f};
-      row.cost_atom.width = 320.f;
-      row.cost_atom.height = 52.f;
-      row.cost_atom.layer = 1;
-      ApplyUiFont(row.cost_atom);
+
+      SetupCostFormula(row.cost_nucleus, assets_.nucleus, assets_.proton,
+                       assets_.neutron);
+      SetupCostFormula(row.cost_atom, assets_.atom, assets_.nucleus,
+                       assets_.electron);
 
       ApplyConsoleButtonStyle(row.craft_nucleus, 150.f, 44.f);
       row.craft_nucleus.text = L"Nucleus x1";
@@ -465,11 +493,19 @@ private:
 
       lab_scroll_.components.push_back(&row.card);
       lab_scroll_.components.push_back(&row.icon);
+      lab_scroll_.components.push_back(&row.nuc_icon);
+      lab_scroll_.components.push_back(&row.atom_icon);
       lab_scroll_.components.push_back(&row.iso_icon);
+      lab_scroll_.components.push_back(&row.nuc_hit);
+      lab_scroll_.components.push_back(&row.atom_hit);
+      lab_scroll_.components.push_back(&row.iso_hit);
       lab_scroll_.components.push_back(&row.name);
+      lab_scroll_.components.push_back(&row.nuc_count);
+      lab_scroll_.components.push_back(&row.atom_count);
+      lab_scroll_.components.push_back(&row.iso_count);
       lab_scroll_.components.push_back(&row.stats);
-      lab_scroll_.components.push_back(&row.cost_nucleus);
-      lab_scroll_.components.push_back(&row.cost_atom);
+      PushCostFormula(lab_scroll_, row.cost_nucleus);
+      PushCostFormula(lab_scroll_, row.cost_atom);
       lab_scroll_.components.push_back(&row.craft_nucleus);
       lab_scroll_.components.push_back(&row.craft_atom);
     }
@@ -692,7 +728,7 @@ private:
         L"Spend leftovers in Tech.",
         {1.f, 1.f, 1.f, 1.f}, 88.f);
     SetupHowToTip(
-        2, assets_.lab,
+        2, assets_.nucleus,
         L"Lab - synthesize elements\n"
         L"Craft a Nucleus (p + n + eV), then an Atom (nucleus + e + eV). "
         L"Heavier elements unlock on hotter stars.\n"
@@ -700,7 +736,7 @@ private:
         L"controls craft amount.",
         {1.f, 1.f, 1.f, 1.f}, 88.f);
     SetupHowToTip(
-        3, assets_.tech,
+        3, assets_.grade,
         L"Tech - upgrades\n"
         L"Order: Electron Lens (EPS) -> Proton Injector (click) -> Neutron "
         L"Channel (crit %, starts at 0%, caps at 100%).\n"
@@ -1017,6 +1053,114 @@ private:
     star_scale_ = (1.f - 0.05f * click_wave) * (1.f + idle);
   }
 
+  void SetupCostFormula(game_ui::CostFormula& f, int result_tex, int a_tex,
+                        int b_tex) {
+    auto setup_icon = [](Image& img, int tex) {
+      game_ui::ClearImageStyle(img);
+      img.width = img.height = 32.f;
+      img.layer = 1;
+      img.texture_id = tex;
+    };
+    auto setup_label = [this](Label& label, float w = 36.f) {
+      label.font_size = 18.f;
+      label.color = {0.75f, 1.f, 0.8f, 1.f};
+      label.width = w;
+      label.height = 32.f;
+      label.layer = 1;
+      ApplyUiFont(label);
+    };
+    setup_icon(f.result, result_tex);
+    setup_icon(f.a_icon, a_tex);
+    setup_icon(f.b_icon, b_tex);
+    setup_label(f.eq, 18.f);
+    f.eq.text = L"=";
+    setup_label(f.a_amt, 40.f);
+    setup_label(f.plus1, 16.f);
+    f.plus1.text = L"+";
+    setup_label(f.b_amt, 40.f);
+    setup_label(f.plus2, 16.f);
+    f.plus2.text = L"+";
+    setup_label(f.energy, 90.f);
+  }
+
+  static void PushCostFormula(ScrollView& scroll, game_ui::CostFormula& f) {
+    scroll.components.push_back(&f.result);
+    scroll.components.push_back(&f.eq);
+    scroll.components.push_back(&f.a_icon);
+    scroll.components.push_back(&f.a_amt);
+    scroll.components.push_back(&f.plus1);
+    scroll.components.push_back(&f.b_icon);
+    scroll.components.push_back(&f.b_amt);
+    scroll.components.push_back(&f.plus2);
+    scroll.components.push_back(&f.energy);
+  }
+
+  static void SetCostFormulaDisabled(game_ui::CostFormula& f, bool disabled) {
+    f.result.disabled = disabled;
+    f.eq.disabled = disabled;
+    f.a_icon.disabled = disabled;
+    f.a_amt.disabled = disabled;
+    f.plus1.disabled = disabled;
+    f.b_icon.disabled = disabled;
+    f.b_amt.disabled = disabled;
+    f.plus2.disabled = disabled;
+    f.energy.disabled = disabled;
+  }
+
+  static void ClearCostFormulaAmounts(game_ui::CostFormula& f) {
+    f.a_amt.text.clear();
+    f.b_amt.text.clear();
+    f.energy.text.clear();
+  }
+
+  static void SetCostFormulaAmounts(game_ui::CostFormula& f, int a_count,
+                                    int b_count, double energy_ev) {
+    f.a_amt.text = game_ui::FormatInt(a_count);
+    f.b_amt.text = game_ui::FormatInt(b_count);
+    f.energy.text = game_ui::FormatEv(energy_ev) + L" eV";
+  }
+
+  void HideCostFormula(game_ui::CostFormula& f) {
+    Hide(f.result);
+    Hide(f.eq);
+    Hide(f.a_icon);
+    Hide(f.a_amt);
+    Hide(f.plus1);
+    Hide(f.b_icon);
+    Hide(f.b_amt);
+    Hide(f.plus2);
+    Hide(f.energy);
+  }
+
+  static void LayoutCostFormula(game_ui::CostFormula& f, float x, float y,
+                                float icon_sz) {
+    constexpr float kGap = 4.f;
+    auto place_icon = [&](Image& img) {
+      img.width = img.height = icon_sz;
+      img.x = x;
+      img.y = y;
+      x += icon_sz + kGap;
+    };
+    auto place_label = [&](Label& label, float w) {
+      // Same height as icons so LeftMiddle centers text vertically.
+      label.width = w;
+      label.height = icon_sz;
+      label.x = x;
+      label.y = y;
+      x += w + kGap;
+    };
+
+    place_icon(f.result);
+    place_label(f.eq, 16.f);
+    place_icon(f.a_icon);
+    place_label(f.a_amt, 36.f);
+    place_label(f.plus1, 14.f);
+    place_icon(f.b_icon);
+    place_label(f.b_amt, 36.f);
+    place_label(f.plus2, 14.f);
+    place_label(f.energy, 88.f);
+  }
+
   void RefreshElementRows() {
     for (int i = 0; i < kMaxElementRows; ++i) {
       auto& row = element_rows_[i];
@@ -1024,57 +1168,55 @@ private:
                           G().elements[i].unlocked;
       row.card.disabled = !active;
       row.icon.disabled = !active;
+      row.nuc_icon.disabled = !active;
+      row.atom_icon.disabled = !active;
       row.iso_icon.disabled = !active;
+      row.nuc_hit.disabled = !active;
+      row.atom_hit.disabled = !active;
+      row.iso_hit.disabled = !active;
       row.name.disabled = !active;
+      row.nuc_count.disabled = !active;
+      row.atom_count.disabled = !active;
+      row.iso_count.disabled = !active;
       row.stats.disabled = !active;
-      row.cost_nucleus.disabled = !active;
-      row.cost_atom.disabled = !active;
+      SetCostFormulaDisabled(row.cost_nucleus, !active);
+      SetCostFormulaDisabled(row.cost_atom, !active);
       if (!active) {
         row.craft_nucleus.disabled = true;
         row.craft_atom.disabled = true;
         row.name.text.clear();
+        row.nuc_count.text.clear();
+        row.atom_count.text.clear();
+        row.iso_count.text.clear();
         row.stats.text.clear();
-        row.cost_nucleus.text.clear();
-        row.cost_atom.text.clear();
+        ClearCostFormulaAmounts(row.cost_nucleus);
+        ClearCostFormulaAmounts(row.cost_atom);
         row.icon.texture_id = -1;
-        row.iso_icon.texture_id = -1;
         continue;
       }
 
       const auto& el = G().elements[i];
       row.icon.texture_id = assets_.ElementIcon(el.id);
-      if (el.isotope_discovered) {
-        row.iso_icon.texture_id = assets_.IsotopeIcon(el.id);
-        row.iso_icon.disabled = false;
-      } else {
-        row.iso_icon.texture_id = -1;
-        row.iso_icon.disabled = true;
-      }
+      row.nuc_icon.texture_id = assets_.nucleus;
+      row.atom_icon.texture_id = assets_.atom;
+      row.iso_icon.texture_id = assets_.isotope;
       row.name.text = el.name;
+      row.nuc_count.text = game_ui::FormatInt(el.nucleus_count);
+      row.atom_count.text = game_ui::FormatInt(el.atom_count);
+      row.iso_count.text = game_ui::FormatInt(el.isotope_count);
 
       std::wstringstream ss;
-      ss << L"Nuc " << game_ui::FormatInt(el.nucleus_count) << L"  Atom "
-         << game_ui::FormatInt(el.atom_count) << L"  Iso "
-         << game_ui::FormatInt(el.isotope_count) << L"\nIso EPS "
-         << game_ui::FormatEv(G().ElementIsotopeEps(el)) << L"/s  Mut "
-         << game_ui::FormatInt(G().EffectiveMutationChance(el) * 100.0) << L"%";
+      ss << L"Iso EPS " << game_ui::FormatEv(G().ElementIsotopeEps(el))
+         << L"/s";
       row.stats.text = ss.str();
 
       const double e_nuc = G().ActivationEnergy(el);
       const double e_atom = e_nuc * 0.35;
 
-      std::wstringstream cost_n;
-      cost_n << L"Nucleus: " << el.protons_needed << L"p + "
-             << el.neutrons_needed << L"n + " << game_ui::FormatEv(e_nuc)
-             << L" eV";
-      row.cost_nucleus.text = cost_n.str();
-
-      std::wstringstream cost_a;
-      cost_a << L"Atom: 1 nuc + " << el.electrons_needed << L"e + "
-             << game_ui::FormatEv(e_atom) << L" eV\nIso EPS: +"
-             << game_ui::FormatEv(G().IsotopeEpsPer(el) * G().isotope_eps_mult)
-             << L" eV/s each";
-      row.cost_atom.text = cost_a.str();
+      // Per-element particle/energy costs (icons are shared for all elements).
+      SetCostFormulaAmounts(row.cost_nucleus, el.protons_needed,
+                            el.neutrons_needed, e_nuc);
+      SetCostFormulaAmounts(row.cost_atom, 1, el.electrons_needed, e_atom);
 
       row.craft_nucleus.disabled =
           G().ResolveCraftBatchCount(G().MaxNucleusCraft(el)) <= 0;
@@ -1155,9 +1297,7 @@ private:
         }
         const auto& cost = up.base_costs[c];
         const double amt = G().ScaledCostAmount(up, cost);
-        const double have = G().ResourceAmount(cost);
-        desc << game_ui::FormatInt(have) << L"/" << game_ui::FormatInt(amt)
-             << L" ";
+        desc << game_ui::FormatInt(amt) << L" ";
         switch (cost.kind) {
           case ResourceKind::Energy:
             desc << L"E";
@@ -1296,21 +1436,153 @@ private:
     return px >= x && py >= y && px < x + w && py < y + h;
   }
 
+  enum class DelayedTipKind {
+    None = 0,
+    Nucleus,
+    Atom,
+    Isotope,
+    Proton,
+    Neutron,
+    Electron
+  };
+
+  void ClearDelayedTipHover() {
+    delayed_tip_kind_ = DelayedTipKind::None;
+    delayed_tip_row_ = -1;
+    delayed_tip_t_ = 0.f;
+    delayed_tip_armed_ = false;
+    delayed_tip_text_.clear();
+  }
+
+  void ArmDelayedTip(int row, DelayedTipKind kind, const std::wstring& text,
+                     float tip_w, float tip_h) {
+    delayed_tip_armed_ = true;
+    if (delayed_tip_row_ != row || delayed_tip_kind_ != kind) {
+      delayed_tip_row_ = row;
+      delayed_tip_kind_ = kind;
+      delayed_tip_t_ = 0.f;
+    }
+    delayed_tip_text_ = text;
+    delayed_tip_w_ = tip_w;
+    delayed_tip_h_ = tip_h;
+    if (delayed_tip_t_ >= kDelayedTipSec) {
+      ShowHoverTip(delayed_tip_text_, delayed_tip_w_, delayed_tip_h_);
+    } else {
+      HideHoverTip();
+    }
+  }
+
+  void AdvanceStockTipTimer(float dt) {
+    if (!delayed_tip_armed_ || delayed_tip_kind_ == DelayedTipKind::None) {
+      return;
+    }
+    delayed_tip_t_ += dt;
+    if (delayed_tip_t_ >= kDelayedTipSec) {
+      ShowHoverTip(delayed_tip_text_, delayed_tip_w_, delayed_tip_h_);
+    }
+  }
+
+  std::wstring DelayedTipText(int row_index, DelayedTipKind kind) const {
+    switch (kind) {
+      case DelayedTipKind::Nucleus:
+        // Explicit breaks so Orbitron wrap does not split mid-word.
+        return L"Nucleus\nCrafted from protons,\nneutrons and energy.";
+      case DelayedTipKind::Atom:
+        return L"Atom\nNucleus + electrons\n+ energy.";
+      case DelayedTipKind::Isotope: {
+        std::wstringstream ss;
+        ss << L"Isotope\nRare atom mutation.";
+        if (row_index >= 0 &&
+            row_index < static_cast<int>(G().elements.size())) {
+          const auto& el = G().elements[row_index];
+          ss << L"\n+"
+             << game_ui::FormatEv(G().IsotopeEpsPer(el) * G().isotope_eps_mult)
+             << L" eV/s each";
+        }
+        return ss.str();
+      }
+      case DelayedTipKind::Proton:
+        return L"Proton\nUsed with neutrons\nto craft nuclei.";
+      case DelayedTipKind::Neutron:
+        return L"Neutron\nUsed with protons\nto craft nuclei.";
+      case DelayedTipKind::Electron:
+        return L"Electron\nCompletes a nucleus\ninto an atom.";
+      default:
+        return L"";
+    }
+  }
+
   void UpdateHoverTooltips() {
+    delayed_tip_armed_ = false;
     if (!app_) {
+      ClearDelayedTipHover();
       HideHoverTip();
       return;
     }
     // Modal open or any mouse button held: never show a sticky tip.
     if (howto_modal_.open || reset_modal_.open) {
+      ClearDelayedTipHover();
       HideHoverTip();
       return;
     }
     const MouseEvents* mouse = ui_get_mouse_events(app_->ctx);
     if (!mouse || mouse->left_down || mouse->right_down || mouse->middle_down) {
+      ClearDelayedTipHover();
       HideHoverTip();
       return;
     }
+
+    // Energy HUD particle icons: tip after 1s hover.
+    auto particle_hit = [&](const Image& icon) {
+      return PointInRect(mouse->x, mouse->y, icon.x, icon.y, icon.width,
+                         icon.height);
+    };
+    if (particle_hit(hud_icon_p_)) {
+      ArmDelayedTip(-1, DelayedTipKind::Proton,
+                    DelayedTipText(-1, DelayedTipKind::Proton), 260.f, 78.f);
+      return;
+    }
+    if (particle_hit(hud_icon_n_)) {
+      ArmDelayedTip(-1, DelayedTipKind::Neutron,
+                    DelayedTipText(-1, DelayedTipKind::Neutron), 260.f, 78.f);
+      return;
+    }
+    if (particle_hit(hud_icon_e_)) {
+      ArmDelayedTip(-1, DelayedTipKind::Electron,
+                    DelayedTipText(-1, DelayedTipKind::Electron), 260.f, 78.f);
+      return;
+    }
+
+    // Lab stock icons: tip appears only after hovering for 1 second.
+    if (PointInRect(mouse->x, mouse->y, lab_scroll_.x, lab_scroll_.y,
+                    lab_scroll_.width, lab_scroll_.height)) {
+      for (int i = 0; i < kMaxElementRows; ++i) {
+        auto& row = element_rows_[i];
+        if (row.element_index < 0 || row.nuc_hit.disabled) {
+          continue;
+        }
+        DelayedTipKind kind = DelayedTipKind::None;
+        if (row.nuc_hit.state == ComponentState::Hovered) {
+          kind = DelayedTipKind::Nucleus;
+        } else if (row.atom_hit.state == ComponentState::Hovered) {
+          kind = DelayedTipKind::Atom;
+        } else if (row.iso_hit.state == ComponentState::Hovered) {
+          kind = DelayedTipKind::Isotope;
+        }
+        if (kind == DelayedTipKind::None) {
+          continue;
+        }
+        const float tip_h =
+            (kind == DelayedTipKind::Isotope || kind == DelayedTipKind::Nucleus ||
+             kind == DelayedTipKind::Atom)
+                ? 84.f
+                : 64.f;
+        ArmDelayedTip(i, kind, DelayedTipText(i, kind), 300.f, tip_h);
+        return;
+      }
+    }
+
+    ClearDelayedTipHover();
 
     // Tech icon tips only while the cursor is inside the Tech scroll viewport.
     // ScrollView can leave child Hovered stuck after the mouse leaves the panel.
@@ -1735,14 +2007,13 @@ private:
     }
 
     if (sn) {
-      icon_supernova_.x = star_center_x_ + half + 10.f;
-      icon_supernova_.y = star_center_y_ - 18.f;
-      supernova_.x = icon_supernova_.x + icon_supernova_.width + 6.f;
-      supernova_.y = star_center_y_ - supernova_.height * 0.5f;
-      if (supernova_.x + supernova_.width > center_x + center_w) {
-        supernova_.x = center_x + center_w - supernova_.width;
-        icon_supernova_.x = supernova_.x - icon_supernova_.width - 6.f;
-      }
+      // Top-left of the central star block.
+      icon_supernova_.width = icon_supernova_.height = 48.f;
+      icon_supernova_.x = center_x + 8.f;
+      icon_supernova_.y = star_area_top + 4.f;
+      supernova_.x = icon_supernova_.x + icon_supernova_.width + 8.f;
+      supernova_.y = icon_supernova_.y +
+                     (icon_supernova_.height - supernova_.height) * 0.5f;
     } else {
       Hide(icon_supernova_);
       Hide(supernova_);
@@ -1763,7 +2034,9 @@ private:
     const float craft_x0 = 8.f;
     float y = 8.f;
     constexpr float kCardPad = 10.f;
-    constexpr float kCardH = 292.f;
+    constexpr float kCardH = 320.f;
+    constexpr float kStockIcon = 64.f;
+    constexpr float kCostIcon = 32.f;
     for (int i = 0; i < kMaxElementRows; ++i) {
       auto& row = element_rows_[i];
       const bool active = i < static_cast<int>(G().elements.size()) &&
@@ -1771,11 +2044,19 @@ private:
       if (!active) {
         Hide(row.card);
         Hide(row.icon);
+        Hide(row.nuc_icon);
+        Hide(row.atom_icon);
         Hide(row.iso_icon);
+        Hide(row.nuc_hit);
+        Hide(row.atom_hit);
+        Hide(row.iso_hit);
         Hide(row.name);
+        Hide(row.nuc_count);
+        Hide(row.atom_count);
+        Hide(row.iso_count);
         Hide(row.stats);
-        Hide(row.cost_nucleus);
-        Hide(row.cost_atom);
+        HideCostFormula(row.cost_nucleus);
+        HideCostFormula(row.cost_atom);
         Hide(row.craft_nucleus);
         Hide(row.craft_atom);
         continue;
@@ -1788,31 +2069,54 @@ private:
 
       row.name.width = lab_inner_w - 90.f;
       row.stats.width = lab_inner_w - 8.f;
-      row.cost_nucleus.width = lab_inner_w - 8.f;
-      row.cost_atom.width = lab_inner_w - 8.f;
       row.craft_nucleus.width = row.craft_atom.width = btn_w;
 
       row.icon.x = kCardPad;
       row.icon.y = y + kCardPad;
-      if (G().elements[i].isotope_discovered) {
-        row.iso_icon.x = 54.f;
-        row.iso_icon.y = y + kCardPad + 6.f;
-      } else {
-        Hide(row.iso_icon);
-      }
       row.name.x = 90.f;
       row.name.y = y + kCardPad + 4.f;
+
+      // 1) craft costs, 2) stock counts in one row, 3) Iso EPS total
+      LayoutCostFormula(row.cost_nucleus, kCardPad, y + 56.f, kCostIcon);
+      LayoutCostFormula(row.cost_atom, kCardPad, y + 96.f, kCostIcon);
+
+      const float stock_y = y + 140.f;
+      const float stock_slot =
+          std::max(100.f, (lab_inner_w - kCardPad * 2.f) / 3.f);
+      const float count_w = std::max(36.f, stock_slot - kStockIcon - 6.f);
+      row.nuc_icon.width = row.nuc_icon.height = kStockIcon;
+      row.atom_icon.width = row.atom_icon.height = kStockIcon;
+      row.iso_icon.width = row.iso_icon.height = kStockIcon;
+      row.nuc_hit.width = row.nuc_hit.height = kStockIcon;
+      row.atom_hit.width = row.atom_hit.height = kStockIcon;
+      row.iso_hit.width = row.iso_hit.height = kStockIcon;
+      row.nuc_count.width = row.atom_count.width = row.iso_count.width =
+          count_w;
+      row.nuc_count.height = row.atom_count.height = row.iso_count.height =
+          kStockIcon;
+
+      auto place_stock = [&](Image& icon, Button& hit, Label& count,
+                             float slot_x) {
+        icon.x = slot_x;
+        icon.y = stock_y;
+        hit.x = slot_x;
+        hit.y = stock_y;
+        count.x = slot_x + kStockIcon + 4.f;
+        count.y = stock_y;
+      };
+      place_stock(row.nuc_icon, row.nuc_hit, row.nuc_count, kCardPad);
+      place_stock(row.atom_icon, row.atom_hit, row.atom_count,
+                  kCardPad + stock_slot);
+      place_stock(row.iso_icon, row.iso_hit, row.iso_count,
+                  kCardPad + stock_slot * 2.f);
+
       row.stats.x = kCardPad;
-      row.stats.y = y + 56.f;
-      row.cost_nucleus.x = kCardPad;
-      row.cost_nucleus.y = y + 118.f;
-      row.cost_atom.x = kCardPad;
-      row.cost_atom.y = y + 176.f;
+      row.stats.y = y + 216.f;
 
       row.craft_nucleus.x = craft_x0 + 2.f;
-      row.craft_nucleus.y = y + 236.f;
+      row.craft_nucleus.y = y + 252.f;
       row.craft_atom.x = craft_x0 + btn_w + btn_gap + 2.f;
-      row.craft_atom.y = y + 236.f;
+      row.craft_atom.y = y + 252.f;
       y += kCardH + 12.f;
     }
 
@@ -1986,6 +2290,15 @@ private:
   std::vector<game_ui::FloatText> float_texts_;
   Panel tech_tip_panel_{};
   Text tech_tip_label_{};
+
+  static constexpr float kDelayedTipSec = 1.f;
+  DelayedTipKind delayed_tip_kind_ = DelayedTipKind::None;
+  int delayed_tip_row_ = -1;
+  float delayed_tip_t_ = 0.f;
+  bool delayed_tip_armed_ = false;
+  std::wstring delayed_tip_text_{};
+  float delayed_tip_w_ = 280.f;
+  float delayed_tip_h_ = 64.f;
 };
 
 }  // namespace

@@ -12,12 +12,12 @@ struct GameAssets {
   int electron = -1;
   int energy = -1;
   int supernova = -1;
-  int lab = -1;
-  int tech = -1;
   int grade = -1;
+  int nucleus = -1;
+  int atom = -1;
+  int isotope = -1;
   int star_icons[4] = {-1, -1, -1, -1};
   std::unordered_map<std::string, int> elements;
-  std::unordered_map<std::string, int> isotopes;
   std::unordered_map<std::string, int> upgrades;
 
   void Load(UiContext* ctx) {
@@ -29,9 +29,10 @@ struct GameAssets {
     electron = ui_load_texture(ctx, L"assets\\icons\\electron.png");
     energy = ui_load_texture(ctx, L"assets\\icons\\energy.png");
     supernova = ui_load_texture(ctx, L"assets\\icons\\supernova.png");
-    lab = ui_load_texture(ctx, L"assets\\icons\\lab.png");
-    tech = ui_load_texture(ctx, L"assets\\icons\\tech.png");
     grade = ui_load_texture(ctx, L"assets\\icons\\grade.png");
+    nucleus = ui_load_texture(ctx, L"assets\\icons\\nucleus.png");
+    atom = ui_load_texture(ctx, L"assets\\icons\\atom.png");
+    isotope = ui_load_texture(ctx, L"assets\\icons\\isotope.png");
 
     star_icons[0] =
         ui_load_texture(ctx, StarTypeImagePath(StarType::BrownDwarf));
@@ -55,20 +56,8 @@ struct GameAssets {
         L"assets\\images\\elements\\silver.png",
         L"assets\\images\\elements\\xenon.png",
         L"assets\\images\\elements\\gold.png"};
-    const wchar_t* iso_files[] = {
-        L"assets\\images\\elements\\iso_hydrogen.png",
-        L"assets\\images\\elements\\iso_helium.png",
-        L"assets\\images\\elements\\iso_carbon.png",
-        L"assets\\images\\elements\\iso_oxygen.png",
-        L"assets\\images\\elements\\iso_silicon.png",
-        L"assets\\images\\elements\\iso_iron.png",
-        L"assets\\images\\elements\\iso_nickel.png",
-        L"assets\\images\\elements\\iso_silver.png",
-        L"assets\\images\\elements\\iso_xenon.png",
-        L"assets\\images\\elements\\iso_gold.png"};
     for (int i = 0; i < 10; ++i) {
       elements[ids[i]] = ui_load_texture(ctx, files[i]);
-      isotopes[ids[i]] = ui_load_texture(ctx, iso_files[i]);
     }
 
     const char* up_ids[] = {
@@ -161,11 +150,6 @@ struct GameAssets {
     return it == elements.end() ? -1 : it->second;
   }
 
-  int IsotopeIcon(const std::string& id) const {
-    const auto it = isotopes.find(id);
-    return it == isotopes.end() ? -1 : it->second;
-  }
-
   int UpgradeIcon(const std::string& id) const {
     const auto it = upgrades.find(id);
     if (it != upgrades.end() && it->second >= 0) {
@@ -183,6 +167,6 @@ struct GameAssets {
         return coil->second;
       }
     }
-    return tech;
+    return grade;
   }
 };

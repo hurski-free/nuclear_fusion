@@ -58,13 +58,23 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
   app.settings.vsync = true;
   app.settings.brightness = 1.f;
   app.settings.msaa_samples = 4;
-  LoadSettings(app.settings);
+  const bool had_settings = LoadSettings(app.settings);
   app.draft = app.settings;
 
   ScreenSettings screen{};
   screen.screen_mode = app.settings.screen_mode;
-  screen.screen_width = app.settings.width;
-  screen.screen_height = app.settings.height;
+  // Preferred Windowed client size only — not tied to logical resolution.
+  screen.screen_width = 1280;
+  screen.screen_height = 720;
+  // With saved settings use stored logical size; on first run match the OS
+  // window at create, then snap to a listed resolution below.
+  if (had_settings) {
+    screen.resolution_width = app.settings.width;
+    screen.resolution_height = app.settings.height;
+  } else {
+    screen.resolution_width = 0;
+    screen.resolution_height = 0;
+  }
   screen.msaa_samples = app.settings.msaa_samples;
 
   app.ctx = ui_create(L"Nuclear Fusion", &screen, L"icon.ico");
@@ -81,6 +91,17 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
   }
 
   ui_set_brightness(app.ctx, app.settings.brightness);
+
+  if (!had_settings) {
+    const int ww = ui_get_window_width(app.ctx);
+    const int wh = ui_get_window_height(app.ctx);
+    const int idx = FindResolutionIndexForWindow(app, ww, wh);
+    app.settings.width = app.resolutions[idx].width;
+    app.settings.height = app.resolutions[idx].height;
+    app.draft = app.settings;
+    SaveSettings(app.settings);
+  }
+  ui_set_resolution(app.ctx, app.settings.width, app.settings.height);
 
   VSyncPacer vsync;
   vsync.set_enabled(app.settings.vsync);

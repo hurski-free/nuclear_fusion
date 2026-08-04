@@ -4,6 +4,8 @@
 #include "../console_theme.h"
 #include "../settings_io.h"
 
+#include <algorithm>
+
 class SettingsScene : public IScene {
 public:
   void on_enter(AppState& app) override {
@@ -105,8 +107,10 @@ private:
     app.settings = app.draft;
 
     ui_set_brightness(app.ctx, app.settings.brightness);
-    ui_set_screen_size(app.ctx, app.settings.width, app.settings.height);
+    // Window mode: library owns OS window / swap-chain sizing.
     ui_set_screen_mode(app.ctx, app.settings.screen_mode);
+    // Resolution only changes the logical scene/UI size (stretch-blit).
+    ui_set_resolution(app.ctx, app.settings.width, app.settings.height);
     ui_set_msaa_samples(app.ctx, app.settings.msaa_samples);
     SaveSettings(app.settings);
 
@@ -116,6 +120,17 @@ private:
   void Cancel(AppState& app) {
     app.draft = app.settings;
     RequestScene(app, SceneId::Game);
+  }
+
+  void StyleBodyScroll() {
+    body_.scroll_y.mode = ScrollMode::Auto;
+    body_.scroll_x.mode = ScrollMode::Hidden;
+    body_.layer = 1;
+    // No frame — only the outer Settings panel keeps a border.
+    body_.style_base = {Color{0.f, 0.f, 0.f, 0.f}, Border{}};
+    body_.style_hovered = body_.style_base;
+    body_.style_active = body_.style_base;
+    body_.style_disabled = body_.style_base;
   }
 
   void Rebuild(AppState& app) {
@@ -137,6 +152,9 @@ private:
     panel_.layer = 0;
     panel_.width = 560.f;
     panel_.height = 620.f;
+    ApplyUiFont(panel_);
+
+    StyleBodyScroll();
 
     mode_label_.text = L"Window mode";
     mode_label_.font_size = 24.f;
@@ -163,6 +181,7 @@ private:
     }
     res_.bind_data(&res_index_);
     res_.selected = res_index_;
+    res_.width = 360.f;
     ApplyUiFont(res_);
 
     msaa_label_.text = L"Antialiasing";
@@ -206,7 +225,6 @@ private:
     brightness_.bind_data(&brightness_value_);
     brightness_.value = brightness_value_;
     ApplyUiFont(brightness_);
-    ApplyUiFont(panel_);
 
     ApplyConsoleButtonStyle(apply_, 160.f, 44.f);
     apply_.text = L"Apply";
@@ -224,12 +242,13 @@ private:
       }
     };
 
-    panel_.components = {&mode_label_,       &mode_,
-                         &res_label_,        &res_,
-                         &msaa_label_,       &msaa_,
-                         &hud_refresh_label_, &hud_refresh_,
-                         &vsync_,            &brightness_,
-                         &apply_,            &cancel_};
+    body_.components = {&mode_label_,        &mode_,
+                        &res_label_,         &res_,
+                        &msaa_label_,        &msaa_,
+                        &hud_refresh_label_, &hud_refresh_,
+                        &vsync_,             &brightness_};
+
+    panel_.components = {&body_, &apply_, &cancel_};
 
     Layout(w, h);
 
@@ -249,11 +268,25 @@ private:
     bg_.width = w;
     bg_.height = h;
 
+    panel_.height = std::min(620.f, std::max(420.f, h - 80.f));
     panel_.x = (w - panel_.width) * 0.5f;
     panel_.y = (h - panel_.height) * 0.5f;
 
-    float y = 16.f;
-    const float left = 24.f;
+    constexpr float kPad = 16.f;
+    constexpr float kBtnH = 44.f;
+    constexpr float kBtnGap = 16.f;
+    constexpr float kFooter = kBtnH + 24.f;
+
+    body_.x = kPad;
+    body_.y = 8.f;
+    body_.width = panel_.width - kPad * 2.f;
+    body_.height =
+        panel_.height - panel_.title_height - kFooter - body_.y - 8.f;
+
+    // Content positions are relative to the borderless scroll body.
+    float y = 8.f;
+    const float left = 8.f;
+    constexpr float kBlockGap = 28.f;
 
     mode_label_.x = left;
     mode_label_.y = y;
@@ -261,7 +294,7 @@ private:
 
     mode_.x = left;
     mode_.y = y;
-    y += 110.f;
+    y += 110.f + kBlockGap;
 
     res_label_.x = left;
     res_label_.y = y;
@@ -269,7 +302,7 @@ private:
 
     res_.x = left;
     res_.y = y;
-    y += 56.f;
+    y += 48.f + kBlockGap;
 
     msaa_label_.x = left;
     msaa_label_.y = y;
@@ -277,7 +310,7 @@ private:
 
     msaa_.x = left;
     msaa_.y = y;
-    y += 56.f;
+    y += 48.f + kBlockGap;
 
     hud_refresh_label_.x = left;
     hud_refresh_label_.y = y;
@@ -285,21 +318,21 @@ private:
 
     hud_refresh_.x = left;
     hud_refresh_.y = y;
-    y += 56.f;
+    y += 48.f + kBlockGap;
 
     vsync_.x = left;
     vsync_.y = y;
-    y += 48.f;
+    y += 40.f + kBlockGap;
 
     brightness_.x = left;
     brightness_.y = y;
+    brightness_.width = std::max(200.f, body_.width - left * 2.f - 8.f);
 
-    const float btn_gap = 16.f;
     apply_.width = 160.f;
     cancel_.width = 160.f;
-    apply_.x = left;
-    apply_.y = panel_.height - panel_.title_height - 64.f;
-    cancel_.x = left + apply_.width + btn_gap;
+    apply_.x = kPad;
+    apply_.y = panel_.height - panel_.title_height - kBtnH - 12.f;
+    cancel_.x = apply_.x + apply_.width + kBtnGap;
     cancel_.y = apply_.y;
   }
 
@@ -308,6 +341,7 @@ private:
   Scene ui_scene_{};
   Image bg_{};
   Panel panel_{};
+  ScrollView body_{};
   Label mode_label_{};
   RadioGroup mode_{};
   Label res_label_{};

@@ -15,7 +15,7 @@
 namespace save_io {
 
 inline constexpr uint32_t kMagic = 0x4E465331u;  // "NF1S"
-inline constexpr uint32_t kVersion = 6u;
+inline constexpr uint32_t kVersion = 7u;
 inline constexpr uint8_t kXorKey[8] = {0xA5, 0x3C, 0x77, 0x19,
                                        0xE2, 0x5B, 0x91, 0x0D};
 
@@ -143,6 +143,7 @@ inline bool SaveGame(const GameState& g) {
   w.Write(static_cast<int32_t>(g.buy_batch));
   w.Write(static_cast<int32_t>(g.prestige_count));
   w.Write(g.prestige_gold_next);
+  w.Write(static_cast<int32_t>(g.auto_buy));
 
   w.Write(static_cast<uint32_t>(g.elements.size()));
   for (const auto& el : g.elements) {
@@ -215,7 +216,7 @@ inline bool LoadGame(GameState& g) {
   uint32_t version = 0;
   if (!r.Read(magic) || magic != kMagic || !r.Read(version) ||
       (version != 2u && version != 3u && version != 4u && version != 5u &&
-       version != 6u)) {
+       version != 6u && version != 7u)) {
     return false;
   }
 
@@ -233,6 +234,7 @@ inline bool LoadGame(GameState& g) {
   int32_t star_type = 0;
   g.prestige_count = 0;
   g.prestige_gold_next = kPrestigeGoldPerDust;
+  g.auto_buy = AutoBuyMode::None;
   if (version >= 3u) {
     int32_t craft_batch = 0;
     int32_t buy_batch = 0;
@@ -260,6 +262,17 @@ inline bool LoadGame(GameState& g) {
       if (g.prestige_gold_next < kPrestigeGoldPerDust) {
         g.prestige_gold_next = kPrestigeGoldPerDust;
       }
+    }
+    if (version >= 7u) {
+      int32_t auto_buy = 0;
+      if (!r.Read(auto_buy)) {
+        return false;
+      }
+      if (auto_buy < static_cast<int32_t>(AutoBuyMode::None) ||
+          auto_buy > static_cast<int32_t>(AutoBuyMode::All)) {
+        auto_buy = static_cast<int32_t>(AutoBuyMode::None);
+      }
+      g.auto_buy = static_cast<AutoBuyMode>(auto_buy);
     }
     g.star_type = ClampStarType(star_type);
     g.craft_batch = clamp_batch(craft_batch);

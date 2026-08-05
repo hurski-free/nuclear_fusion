@@ -108,6 +108,12 @@ inline const wchar_t* ElementSymbol(const std::string& id) {
   if (id == "Xenon") {
     return L"Xe";
   }
+  if (id == "Gadolinium") {
+    return L"Gd";
+  }
+  if (id == "Tungsten") {
+    return L"W";
+  }
   if (id == "Gold") {
     return L"Au";
   }
@@ -136,6 +142,16 @@ enum class CraftBatch {
   Max = 3,
 };
 
+// Exclusive auto-buy target for the particle purchase panel (Max each second).
+enum class AutoBuyMode {
+  None = 0,
+  Proton = 1,
+  Neutron = 2,
+  Electron = 3,
+  ProtonNeutron = 4,
+  All = 5,
+};
+
 inline int BatchMultiplier(CraftBatch batch) {
   switch (batch) {
     case CraftBatch::x1:
@@ -157,6 +173,8 @@ enum class UpgradeEffect {
   AutoEps,
   AutoClickMult,
   IsotopeEpsMult,
+  // Additive discount on nucleus/atom craft eV (0.02 = -2% per level; no grade).
+  CraftEnergyDiscount,
   // Prestige dust: flat EPS outside the dust EPS multiplier (no grade).
   DustFlatEps,
   // Prestige dust boosts: each level multiplies the target upgrade by effect_per_level.

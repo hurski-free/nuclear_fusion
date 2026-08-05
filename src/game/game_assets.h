@@ -45,8 +45,9 @@ struct GameAssets {
     star_icons[3] =
         ui_load_texture(ctx, StarTypeImagePath(StarType::NeutronStar));
 
-    const char* ids[] = {"Hydrogen", "Helium",  "Carbon", "Oxygen", "Silicon",
-                         "Iron",     "Nickel",  "Silver", "Xenon",  "Gold"};
+    const char* ids[] = {"Hydrogen", "Helium",     "Carbon",  "Oxygen",
+                         "Silicon",  "Iron",       "Nickel",  "Silver",
+                         "Xenon",    "Gadolinium", "Tungsten", "Gold"};
     const wchar_t* files[] = {
         L"assets\\images\\elements\\hydrogen.png",
         L"assets\\images\\elements\\helium.png",
@@ -57,8 +58,10 @@ struct GameAssets {
         L"assets\\images\\elements\\nickel.png",
         L"assets\\images\\elements\\silver.png",
         L"assets\\images\\elements\\xenon.png",
+        L"assets\\images\\elements\\gadolinium.png",
+        L"assets\\images\\elements\\tungsten.png",
         L"assets\\images\\elements\\gold.png"};
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 12; ++i) {
       elements[ids[i]] = ui_load_texture(ctx, files[i]);
     }
 
@@ -84,9 +87,14 @@ struct GameAssets {
         "atom_Silver",
         "nuc_Xenon",
         "atom_Xenon",
+        "nuc_Gadolinium",
+        "atom_Gadolinium",
+        "nuc_Tungsten",
+        "atom_Tungsten",
         "nuc_Gold",
         "atom_Gold",
         "crit_amplifier",
+        "tungsten_catalyst",
         "quantum_cpu",
         "boost_dust_eps",
         "boost_click_e",
@@ -100,6 +108,8 @@ struct GameAssets {
         "annihilation_Nickel",
         "annihilation_Silver",
         "annihilation_Xenon",
+        "annihilation_Gadolinium",
+        "annihilation_Tungsten",
         "annihilation_Gold"};
     const wchar_t* up_files[] = {
         L"assets\\icons\\upgrades\\click_p.png",
@@ -123,9 +133,14 @@ struct GameAssets {
         L"assets\\icons\\upgrades\\atom_Silver.png",
         L"assets\\icons\\upgrades\\nuc_Xenon.png",
         L"assets\\icons\\upgrades\\atom_Xenon.png",
+        L"assets\\icons\\upgrades\\nuc_Gadolinium.png",
+        L"assets\\icons\\upgrades\\atom_Gadolinium.png",
+        L"assets\\icons\\upgrades\\nuc_Tungsten.png",
+        L"assets\\icons\\upgrades\\atom_Tungsten.png",
         L"assets\\icons\\upgrades\\nuc_Gold.png",
         L"assets\\icons\\upgrades\\atom_Gold.png",
         L"assets\\icons\\upgrades\\crit_amplifier.png",
+        L"assets\\icons\\upgrades\\tungsten_catalyst.png",
         L"assets\\icons\\upgrades\\quantum_cpu.png",
         L"assets\\icons\\energy.png",
         L"assets\\icons\\upgrades\\click_e.png",
@@ -139,8 +154,10 @@ struct GameAssets {
         L"assets\\icons\\upgrades\\annihilation.png",
         L"assets\\icons\\upgrades\\annihilation.png",
         L"assets\\icons\\upgrades\\annihilation.png",
+        L"assets\\icons\\upgrades\\annihilation.png",
+        L"assets\\icons\\upgrades\\annihilation.png",
         L"assets\\icons\\upgrades\\annihilation.png"};
-    for (int i = 0; i < 38; ++i) {
+    for (int i = 0; i < 45; ++i) {
       upgrades[up_ids[i]] = ui_load_texture(ctx, up_files[i]);
     }
   }

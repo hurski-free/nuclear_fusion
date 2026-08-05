@@ -60,6 +60,8 @@ public:
     star_renderer_.Update(dt);
 
     SyncBatchesFromUi();
+    SyncAutoBuyFromUi();
+    UpdateAutoBuy(dt);
 
     hud_refresh_accum_ += dt;
     const float interval = std::max(0.05f, app.settings.hud_refresh_sec);
@@ -96,7 +98,8 @@ public:
 
 private:
   static constexpr int kMaxElementRows = 12;
-  static constexpr int kMaxUpgradeRows = 40;
+  // Room for all Tech upgrades (particles + 12 elements×3 + specials).
+  static constexpr int kMaxUpgradeRows = 48;
   static constexpr int kMaxFloatTexts = 10;
 
   GameState& G() { return app_->game; }
@@ -204,6 +207,99 @@ private:
     buy_batch_.selected = buy_batch_index_;
   }
 
+  void StyleAutoBuyToggle(Toggle& tog) {
+    tog.label.clear();
+    tog.width = 48.f;
+    tog.height = 26.f;
+    tog.gap = 0.f;
+    tog.layer = 1;
+    tog.transition_duration = 0.16f;
+    tog.label_color = ColorPhosphor();
+    tog.track_off = {0.08f, 0.16f, 0.1f, 1.f};
+    tog.track_on = {0.14f, 0.55f, 0.24f, 1.f};
+    tog.thumb_color = {0.65f, 1.f, 0.7f, 1.f};
+    ApplyUiFont(tog);
+  }
+
+  void SyncAutoBuyToUi() {
+    auto_tog_p_ = G().auto_buy == AutoBuyMode::Proton;
+    auto_tog_n_ = G().auto_buy == AutoBuyMode::Neutron;
+    auto_tog_e_ = G().auto_buy == AutoBuyMode::Electron;
+    auto_tog_pn_ = G().auto_buy == AutoBuyMode::ProtonNeutron;
+    auto_tog_all_ = G().auto_buy == AutoBuyMode::All;
+    auto_p_.checked = auto_tog_p_;
+    auto_n_.checked = auto_tog_n_;
+    auto_e_.checked = auto_tog_e_;
+    auto_pn_.checked = auto_tog_pn_;
+    auto_all_.checked = auto_tog_all_;
+  }
+
+  void SyncAutoBuyFromUi() {
+    struct Slot {
+      bool* flag;
+      Toggle* tog;
+      AutoBuyMode mode;
+    };
+    const Slot slots[] = {
+        {&auto_tog_p_, &auto_p_, AutoBuyMode::Proton},
+        {&auto_tog_n_, &auto_n_, AutoBuyMode::Neutron},
+        {&auto_tog_e_, &auto_e_, AutoBuyMode::Electron},
+        {&auto_tog_pn_, &auto_pn_, AutoBuyMode::ProtonNeutron},
+        {&auto_tog_all_, &auto_all_, AutoBuyMode::All},
+    };
+
+    AutoBuyMode selected = AutoBuyMode::None;
+    int checked = 0;
+    for (const auto& s : slots) {
+      // Prefer widget state (source of truth after click).
+      *s.flag = s.tog->checked;
+      if (*s.flag) {
+        selected = s.mode;
+        ++checked;
+      }
+    }
+
+    if (checked > 1) {
+      // Keep the newly enabled toggle; turn the previous mode off.
+      AutoBuyMode newly = AutoBuyMode::None;
+      for (const auto& s : slots) {
+        if (*s.flag && s.mode != G().auto_buy) {
+          newly = s.mode;
+          break;
+        }
+      }
+      if (newly == AutoBuyMode::None) {
+        newly = selected;
+      }
+      selected = newly;
+      for (const auto& s : slots) {
+        *s.flag = (s.mode == selected);
+        s.tog->checked = *s.flag;
+      }
+    }
+
+    if (G().auto_buy != selected) {
+      G().auto_buy = selected;
+      auto_buy_accum_ = 0.f;
+      SaveGame(G());
+    }
+  }
+
+  void UpdateAutoBuy(float dt) {
+    if (G().auto_buy == AutoBuyMode::None) {
+      auto_buy_accum_ = 0.f;
+      return;
+    }
+    auto_buy_accum_ += dt;
+    if (auto_buy_accum_ < 1.f) {
+      return;
+    }
+    auto_buy_accum_ = 0.f;
+    if (G().TickAutoBuy()) {
+      RequestHudRefresh();
+    }
+  }
+
   void StyleTechTabButton(Button& btn, const wchar_t* label) {
     ApplyConsoleButtonStyle(btn, 120.f, 32.f);
     btn.text = label;
@@ -285,7 +381,6 @@ private:
 
     const int w = ui_get_width(app.ctx);
     const int h = ui_get_height(app.ctx);
-
     canvas_.width = static_cast<float>(w);
     canvas_.height = static_cast<float>(h);
     canvas_.x = 0.f;
@@ -453,6 +548,41 @@ private:
     SetupBuyControl(icon_p_, buy_p_, assets_.proton, ResourceKind::Proton);
     SetupBuyControl(icon_n_, buy_n_, assets_.neutron, ResourceKind::Neutron);
     SetupBuyControl(icon_e_, buy_e_, assets_.electron, ResourceKind::Electron);
+
+    auto setup_combo_icon = [](Image& img, int tex) {
+      game_ui::ClearImageStyle(img);
+      img.texture_id = tex;
+      img.width = img.height = 28.f;
+      img.layer = 1;
+      img.tint = {1.f, 1.f, 1.f, 1.f};
+    };
+    setup_combo_icon(icon_pn_p_, assets_.proton);
+    setup_combo_icon(icon_pn_n_, assets_.neutron);
+    setup_combo_icon(icon_all_p_, assets_.proton);
+    setup_combo_icon(icon_all_n_, assets_.neutron);
+    setup_combo_icon(icon_all_e_, assets_.electron);
+
+    ApplyConsoleButtonStyle(buy_pn_, 220.f, 48.f);
+    buy_pn_.font_size = 20.f;
+    buy_pn_.layer = 1;
+    buy_pn_.on_click = [this]() { BuyPair(); };
+
+    ApplyConsoleButtonStyle(buy_all_, 220.f, 48.f);
+    buy_all_.font_size = 20.f;
+    buy_all_.layer = 1;
+    buy_all_.on_click = [this]() { BuyTrio(); };
+
+    StyleAutoBuyToggle(auto_p_);
+    StyleAutoBuyToggle(auto_n_);
+    StyleAutoBuyToggle(auto_e_);
+    StyleAutoBuyToggle(auto_pn_);
+    StyleAutoBuyToggle(auto_all_);
+    auto_p_.bind_data(&auto_tog_p_);
+    auto_n_.bind_data(&auto_tog_n_);
+    auto_e_.bind_data(&auto_tog_e_);
+    auto_pn_.bind_data(&auto_tog_pn_);
+    auto_all_.bind_data(&auto_tog_all_);
+    SyncAutoBuyToUi();
 
     game_ui::ClearImageStyle(icon_supernova_);
     icon_supernova_.texture_id = assets_.supernova;
@@ -684,7 +814,7 @@ private:
       row.grade_icon.layer = 2;
       row.grade_icon.tint = {1.f, 1.f, 1.f, 1.f};
       StyleHudLabel(row.grade_label, 16.f);
-      row.grade_label.width = 48.f;
+      row.grade_label.width = 72.f;
       row.grade_label.height = 22.f;
       row.grade_label.layer = 2;
       row.grade_label.color = {1.f, 0.92f, 0.4f, 1.f};
@@ -739,12 +869,14 @@ private:
         &hud_icon_p_,      &count_p_,         &hud_icon_n_,
         &count_n_,         &hud_icon_e_,      &count_e_,
         &settings_btn_,    &howto_btn_,       &reset_btn_,      &exit_btn_,
-        &star_hint_,       &icon_p_,
-        &buy_p_,           &icon_n_,          &buy_n_,
-        &icon_e_,          &buy_e_,           &icon_supernova_,
-        &supernova_,       &icon_autoclick_,  &autoclick_label_,
-        &autoclick_hit_,   &sn_help_btn_,     &lab_scroll_,
-        &tech_scroll_,     &howto_modal_,     &reset_modal_,
+        &star_hint_,       &icon_p_,          &buy_p_,          &auto_p_,
+        &icon_n_,          &buy_n_,           &auto_n_,
+        &icon_e_,          &buy_e_,           &auto_e_,
+        &icon_pn_p_,       &icon_pn_n_,       &buy_pn_,         &auto_pn_,
+        &icon_all_p_,      &icon_all_n_,      &icon_all_e_,     &buy_all_,
+        &auto_all_,        &icon_supernova_,  &supernova_,
+        &icon_autoclick_,  &autoclick_label_, &autoclick_hit_,  &sn_help_btn_,
+        &lab_scroll_,      &tech_scroll_,     &howto_modal_,    &reset_modal_,
         &prestige_modal_,  &tech_tip_panel_,  &tech_tip_label_,
     };
     for (auto& ft : float_texts_) {
@@ -795,8 +927,69 @@ private:
     Relayout();
   }
 
-  void SetupHowToTip(int index, int tex, const wchar_t* text, Color tint,
-                     float label_h = 72.f) {
+  // Wrapped multi-line height for How-to Text blocks (explicit \\n + wrap).
+  float MeasureHowToTextHeight(const std::wstring& text, float width,
+                               float font_size) const {
+    if (!app_ || !app_->ctx || width <= 1.f) {
+      return font_size * 4.f;
+    }
+    const float line_h =
+        std::max(font_size + 4.f,
+                 ui_font_line_height(app_->ctx, font_size, UiFont()));
+    int lines = 0;
+    size_t i = 0;
+    const size_t n = text.size();
+    while (i < n) {
+      // One paragraph until '\n'.
+      size_t para_end = text.find(L'\n', i);
+      if (para_end == std::wstring::npos) {
+        para_end = n;
+      }
+      if (para_end == i) {
+        ++lines;  // blank line
+        i = para_end + 1;
+        continue;
+      }
+      size_t p = i;
+      while (p < para_end) {
+        // Greedy wrap: take as many chars as fit in width.
+        size_t fit = para_end - p;
+        while (fit > 1 &&
+               ui_measure_text_n(app_->ctx, text.c_str() + p, fit, font_size,
+                                 UiFont()) > width) {
+          --fit;
+        }
+        // Prefer breaking on spaces when truncating mid-paragraph.
+        if (p + fit < para_end) {
+          size_t break_at = fit;
+          for (size_t k = fit; k > 0; --k) {
+            if (text[p + k - 1] == L' ') {
+              break_at = k;
+              break;
+            }
+          }
+          if (break_at < fit && break_at > 0) {
+            fit = break_at;
+          }
+        }
+        if (fit == 0) {
+          fit = 1;
+        }
+        ++lines;
+        p += fit;
+        while (p < para_end && text[p] == L' ') {
+          ++p;
+        }
+      }
+      i = (para_end < n) ? para_end + 1 : para_end;
+    }
+    if (lines <= 0) {
+      lines = 1;
+    }
+    return static_cast<float>(lines) * line_h + 4.f;
+  }
+
+  void SetupHowToTip(int index, int tex, const wchar_t* text, Color tint) {
     auto& row = howto_tips_[index];
     game_ui::ClearImageStyle(row.icon);
     row.icon.texture_id = tex;
@@ -807,7 +1000,8 @@ private:
     StyleHowToText(row.label, 17.f);
     row.label.text = text;
     row.label.width = 860.f;
-    row.label.height = label_h;
+    row.label.height =
+        MeasureHowToTextHeight(row.label.text, row.label.width, 17.f);
   }
 
   void SetupHowToModal() {
@@ -829,6 +1023,11 @@ private:
     howto_modal_.on_close = [this]() { howto_modal_.open = false; };
     ApplyUiFont(howto_modal_);
 
+    constexpr float kPad = 16.f;
+    constexpr float kGap = 18.f;
+    constexpr float kIconCol = 56.f;
+    constexpr float kLabelW = 860.f;
+
     howto_body_.width = 940.f;
     howto_body_.height = 590.f;
     howto_body_.x = 20.f;
@@ -846,8 +1045,8 @@ private:
         L"Click the central star to gain eV. Crits multiply a click when they "
         L"trigger.\n"
         L"EPS adds energy automatically. Dust (from Supernova / Prestige) "
-        L"boosts flat EPS, EPS mult, click power and isotope chance.",
-        {1.f, 1.f, 1.f, 1.f}, 88.f);
+        L"adds flat EPS and raises atom -> isotope chance.",
+        {1.f, 1.f, 1.f, 1.f});
     SetupHowToTip(
         1, assets_.proton,
         L"Particles (p / n / e)\n"
@@ -855,7 +1054,7 @@ private:
         L"sets how many you buy at once.\n"
         L"Protons and neutrons feed Lab nuclei; electrons complete atoms. "
         L"Spend leftovers in Tech.",
-        {1.f, 1.f, 1.f, 1.f}, 88.f);
+        {1.f, 1.f, 1.f, 1.f});
     SetupHowToTip(
         2, assets_.nucleus,
         L"Lab - synthesize elements\n"
@@ -863,7 +1062,7 @@ private:
         L"Heavier elements unlock on hotter stars.\n"
         L"Isotopes can appear from atoms and grant passive EPS. Lab Batch "
         L"controls craft amount.",
-        {1.f, 1.f, 1.f, 1.f}, 88.f);
+        {1.f, 1.f, 1.f, 1.f});
     SetupHowToTip(
         3, assets_.grade,
         L"Tech - upgrades\n"
@@ -878,7 +1077,7 @@ private:
         L"Proton Injector x10 boosts that survive Prestige.\n"
         L"Critical Cascade (+1 crit mult) costs atoms H..Fe; Quantum "
         L"Processor adds click multiplier (one click counts as many).",
-        {1.f, 1.f, 1.f, 1.f}, 120.f);
+        {1.f, 1.f, 1.f, 1.f});
     SetupHowToTip(
         4, assets_.supernova,
         L"Supernova & Prestige\n"
@@ -888,7 +1087,7 @@ private:
         L"cost: first Dust starts at 10 Au, each next Dust needs +1 Au more "
         L"(10, 11, 12, ...). That counter survives Prestige.\n"
         L"Both reset resources and Tech; isotope discoveries keep.",
-        {1.f, 1.f, 1.f, 1.f}, 104.f);
+        {1.f, 1.f, 1.f, 1.f});
 
     // Extra particle icons for tip 1 - stacked in the icon column.
     game_ui::ClearImageStyle(howto_icon_n_);
@@ -910,7 +1109,8 @@ private:
         L"Progress saves automatically. Open this guide anytime from "
         L"How to play.";
     howto_intro_.width = 900.f;
-    howto_intro_.height = 78.f;
+    howto_intro_.height =
+        MeasureHowToTextHeight(howto_intro_.text, howto_intro_.width, 17.f);
 
     ApplyConsoleButtonStyle(howto_close_btn_, 180.f, 44.f);
     howto_close_btn_.text = L"Got it";
@@ -918,27 +1118,33 @@ private:
     howto_close_btn_.on_click = [this]() { howto_modal_.open = false; };
 
     float y = 12.f;
-    howto_intro_.x = 16.f;
+    howto_intro_.x = kPad;
     howto_intro_.y = y;
-    y += 88.f;
+    y += howto_intro_.height + kGap;
 
-    constexpr float kIconCol = 56.f;
-    const float tip_heights[kHowToTips] = {88.f, 88.f, 88.f, 120.f, 104.f};
     for (int i = 0; i < kHowToTips; ++i) {
       auto& row = howto_tips_[i];
-      row.icon.x = 16.f;
-      row.icon.y = y + 8.f;
-      row.label.x = 16.f + kIconCol;
+      row.label.width = kLabelW;
+      row.label.height =
+          MeasureHowToTextHeight(row.label.text, row.label.width, 17.f);
+      // Tip 1 needs room for three stacked particle icons.
+      const float min_h = (i == 1) ? 72.f : 48.f;
+      const float block_h = std::max(row.label.height, min_h);
+
+      row.icon.x = kPad;
+      row.icon.y = y + 4.f;
+      row.label.x = kPad + kIconCol;
       row.label.y = y;
       if (i == 1) {
         row.icon.x = 20.f;
         row.icon.y = y + 4.f;
         howto_icon_n_.x = 20.f;
-        howto_icon_n_.y = y + 24.f;
+        howto_icon_n_.y = y + 26.f;
         howto_icon_e_.x = 20.f;
-        howto_icon_e_.y = y + 44.f;
+        howto_icon_e_.y = y + 48.f;
       }
-      y += tip_heights[i] + 14.f;
+      row.label.height = block_h;
+      y += block_h + kGap;
     }
 
     howto_body_.components = {
@@ -1119,6 +1325,24 @@ private:
       G().MaterializeElectron(amount);
     }
     RequestHudRefresh();
+  }
+
+  std::wstring ComboBuyLabel(double amount, double unit_price) const {
+    const double show_amt = amount > 0.0 ? amount : 1.0;
+    return L"x" + game_ui::FormatInt(show_amt) + L" (" +
+           game_ui::FormatInt(unit_price * show_amt) + L" eV)";
+  }
+
+  void BuyPair() {
+    if (G().MaterializePair(G().ResolvePairBuyAmount())) {
+      RequestHudRefresh();
+    }
+  }
+
+  void BuyTrio() {
+    if (G().MaterializeTrio(G().ResolveTrioBuyAmount())) {
+      RequestHudRefresh();
+    }
   }
 
   bool SupernovaAvailable() const {
@@ -1435,8 +1659,8 @@ private:
          << L"/s";
       row.stats.text = ss.str();
 
-      const double e_nuc = G().ActivationEnergy(el);
-      const double e_atom = e_nuc * 0.35;
+      const double e_nuc = G().NucleusCraftEnergy(el);
+      const double e_atom = G().AtomCraftEnergy(el);
 
       // Per-element particle/energy costs (icons are shared for all elements).
       SetCostFormulaAmounts(row.cost_nucleus, el.protons_needed,
@@ -1546,13 +1770,13 @@ private:
           UpgradeUsesGrade(up.effect) ? UpgradeGrade(up.level) : 0;
       if (grade > 0) {
         row.grade_icon.texture_id = assets_.grade;
-        row.grade_label.text = L"x" + std::to_wstring(grade);
+        row.grade_label.text = L"x" + game_ui::FormatInt(grade);
       } else {
         row.grade_icon.texture_id = -1;
         row.grade_label.text.clear();
       }
 
-      row.desc.text = up.description;
+      row.desc.text = FormatUpgradePerLevelDesc(up);
       row.cost_label.text = L"Cost:";
       row.cost_count = std::min(game_ui::UpgradeRow::kMaxCosts,
                                 static_cast<int>(up.base_costs.size()));
@@ -1617,11 +1841,84 @@ private:
     ui_scene_.prepare_scene();
   }
 
+  std::wstring FormatUpgradePerLevelDesc(const UpgradeDef& up) const {
+    const double v = up.effect_per_level;
+    switch (up.effect) {
+      case UpgradeEffect::ClickPower:
+        return L"+" + game_ui::FormatEv(v) + L" eV click power";
+      case UpgradeEffect::AutoEps:
+        return L"+" + game_ui::FormatEv(v) + L" EPS";
+      case UpgradeEffect::CritChance:
+        return L"+" + game_ui::FormatEv(v * 100.0) + L"% crit chance";
+      case UpgradeEffect::CritMultiplier:
+        return L"+" + game_ui::FormatEv(v) + L" crit multiplier";
+      case UpgradeEffect::AutoClickMult:
+        return L"+" + game_ui::FormatEv(v) + L" click multiplier";
+      case UpgradeEffect::IsotopeEpsMult:
+        return L"+" + game_ui::FormatEv(v) +
+               L" this element's isotope EPS mult";
+      case UpgradeEffect::CraftEnergyDiscount:
+        return L"-" + game_ui::FormatEv(v * 100.0) +
+               L"% nucleus/atom eV craft cost";
+      case UpgradeEffect::DustFlatEps:
+        return L"+" + game_ui::FormatEv(v) + L" EPS (permanent)";
+      case UpgradeEffect::ElectronLensBoost:
+        return L"x" + game_ui::FormatEv(v) +
+               L" Electron Lens EPS (permanent)";
+      case UpgradeEffect::ProtonInjectorBoost:
+        return L"x" + game_ui::FormatEv(v) +
+               L" Proton Injector click (permanent)";
+    }
+    return up.description;
+  }
+
+  // Passive for a single upgrade's contribution (D-Tech boosts included where
+  // relevant).
+  double UpgradeBonusTotal(const UpgradeDef& up) const {
+    double total = UpgradeScaledEffect(up);
+    if (up.id == "click_e") {
+      total *= G().DustBoostMultiplier(UpgradeEffect::ElectronLensBoost);
+    } else if (up.id == "click_p") {
+      total *= G().DustBoostMultiplier(UpgradeEffect::ProtonInjectorBoost);
+    }
+    return total;
+  }
+
+  std::wstring FormatUpgradeBonusValue(const UpgradeDef& up,
+                                       double total) const {
+    switch (up.effect) {
+      case UpgradeEffect::ClickPower:
+        return L"+" + game_ui::FormatEv(total) + L" eV click";
+      case UpgradeEffect::AutoEps:
+        return L"+" + game_ui::FormatEv(total) + L" EPS";
+      case UpgradeEffect::CritChance:
+        return L"+" + game_ui::FormatEv(total * 100.0) + L"% crit chance";
+      case UpgradeEffect::CritMultiplier:
+        return L"+" + game_ui::FormatEv(total) + L" crit mult";
+      case UpgradeEffect::AutoClickMult:
+        return L"+" + game_ui::FormatEv(total) + L" click mult";
+      case UpgradeEffect::IsotopeEpsMult:
+        return L"+" + game_ui::FormatEv(total) + L" isotope EPS mult";
+      case UpgradeEffect::CraftEnergyDiscount:
+      case UpgradeEffect::DustFlatEps:
+      case UpgradeEffect::ElectronLensBoost:
+      case UpgradeEffect::ProtonInjectorBoost:
+        break;
+    }
+    return L"+" + game_ui::FormatEv(total);
+  }
+
   std::wstring FormatUpgradeTotalBonus(const UpgradeDef& up) const {
     std::wstringstream ss;
-    ss << L"Total: ";
     if (up.effect == UpgradeEffect::DustFlatEps) {
-      ss << L"+" << game_ui::FormatEv(UpgradeScaledEffect(up)) << L" EPS";
+      ss << L"Total: +" << game_ui::FormatEv(UpgradeScaledEffect(up))
+         << L" EPS";
+      return ss.str();
+    }
+    if (up.effect == UpgradeEffect::CraftEnergyDiscount) {
+      const double discount = 1.0 - G().CraftEnergyMult();
+      ss << L"Total: -" << game_ui::FormatEv(discount * 100.0)
+         << L"% nucleus/atom eV craft cost";
       return ss.str();
     }
     if (up.effect == UpgradeEffect::ElectronLensBoost ||
@@ -1630,7 +1927,7 @@ private:
                               ? std::pow(up.effect_per_level,
                                          static_cast<double>(up.level))
                               : 1.0;
-      ss << L"x" << game_ui::FormatInt(mult);
+      ss << L"Total: x" << game_ui::FormatInt(mult);
       if (up.effect == UpgradeEffect::ElectronLensBoost) {
         ss << L" Electron Lens EPS";
       } else {
@@ -1639,46 +1936,21 @@ private:
       return ss.str();
     }
 
-    double total = UpgradeScaledEffect(up);
-    if (up.id == "click_e") {
-      total *= G().DustBoostMultiplier(UpgradeEffect::ElectronLensBoost);
-    } else if (up.id == "click_p") {
-      total *= G().DustBoostMultiplier(UpgradeEffect::ProtonInjectorBoost);
+    const double total = UpgradeBonusTotal(up);
+    const int grade =
+        UpgradeUsesGrade(up.effect) ? UpgradeGrade(up.level) : 0;
+    if (grade > 0) {
+      const double grade_x = UpgradeGradeMultiplier(
+          grade, UpgradeGradeBase(up.effect));
+      ss << L"grade x" << game_ui::FormatInt(grade_x) << L"\n"
+         << L"Total: " << FormatUpgradeBonusValue(up, total);
+      return ss.str();
     }
-    switch (up.effect) {
-      case UpgradeEffect::ClickPower:
-        ss << L"+" << game_ui::FormatEv(total) << L" eV click";
-        break;
-      case UpgradeEffect::AutoEps:
-        ss << L"+" << game_ui::FormatEv(total) << L" EPS";
-        break;
-      case UpgradeEffect::CritChance:
-        ss << L"+" << game_ui::FormatEv(total * 100.0) << L"% crit chance";
-        break;
-      case UpgradeEffect::CritMultiplier:
-        ss << L"+" << game_ui::FormatEv(total) << L" crit mult";
-        break;
-      case UpgradeEffect::AutoClickMult:
-        ss << L"+" << game_ui::FormatEv(total) << L" click mult\n"
-           << L"Click: " << game_ui::FormatEv(G().EffectiveClickPower())
-           << L" eV";
-        break;
-      case UpgradeEffect::IsotopeEpsMult:
-        ss << L"+" << game_ui::FormatEv(total) << L" isotope EPS mult";
-        break;
-      case UpgradeEffect::DustFlatEps:
-      case UpgradeEffect::ElectronLensBoost:
-      case UpgradeEffect::ProtonInjectorBoost:
-        break;
-    }
-    if (UpgradeUsesGrade(up.effect)) {
-      const int grade = UpgradeGrade(up.level);
-      if (grade > 0) {
-        ss << L"  (grade x"
-           << game_ui::FormatInt(UpgradeGradeMultiplier(
-                  grade, UpgradeGradeBase(up.effect)))
-           << L")";
-      }
+
+    ss << L"Total: " << FormatUpgradeBonusValue(up, total);
+    if (up.effect == UpgradeEffect::AutoClickMult) {
+      ss << L"\nClick: " << game_ui::FormatEv(G().EffectiveClickPower())
+         << L" eV";
     }
     return ss.str();
   }
@@ -1787,9 +2059,9 @@ private:
             row_index < static_cast<int>(G().elements.size())) {
           const auto& el = G().elements[row_index];
           const double base = G().IsotopeEpsPer(el);
-          const double with_coil = base * G().isotope_eps_mult;
+          const double with_coil = base * G().ElementIsotopeMult(el);
           ss << L"\nBase +" << game_ui::FormatEv(base) << L" eV/s each"
-             << L"\nWith coils +" << game_ui::FormatEv(with_coil)
+             << L"\nWith coil +" << game_ui::FormatEv(with_coil)
              << L" eV/s each";
         }
         return ss.str();
@@ -1832,17 +2104,20 @@ private:
     };
     if (particle_hit(hud_icon_p_)) {
       ArmDelayedTip(-1, DelayedTipKind::Proton,
-                    DelayedTipText(-1, DelayedTipKind::Proton), 260.f, 78.f);
+                    DelayedTipText(-1, DelayedTipKind::Proton), 260.f,
+                    78.f);
       return;
     }
     if (particle_hit(hud_icon_n_)) {
       ArmDelayedTip(-1, DelayedTipKind::Neutron,
-                    DelayedTipText(-1, DelayedTipKind::Neutron), 260.f, 78.f);
+                    DelayedTipText(-1, DelayedTipKind::Neutron), 260.f,
+                    78.f);
       return;
     }
     if (particle_hit(hud_icon_e_)) {
       ArmDelayedTip(-1, DelayedTipKind::Electron,
-                    DelayedTipText(-1, DelayedTipKind::Electron), 260.f, 78.f);
+                    DelayedTipText(-1, DelayedTipKind::Electron), 260.f,
+                    78.f);
       return;
     }
 
@@ -1908,12 +2183,18 @@ private:
         if (row.upgrade_index >= static_cast<int>(G().upgrades.size())) {
           continue;
         }
-        ShowHoverTip(FormatUpgradeTotalBonus(G().upgrades[row.upgrade_index]),
-                     300.f,
-                     G().upgrades[row.upgrade_index].effect ==
-                             UpgradeEffect::AutoClickMult
-                         ? 64.f
-                         : 52.f);
+        {
+          const auto& tip_up = G().upgrades[row.upgrade_index];
+          const int tip_grade = UpgradeUsesGrade(tip_up.effect)
+                                    ? UpgradeGrade(tip_up.level)
+                                    : 0;
+          const float tip_h =
+              tip_grade > 0
+                  ? 56.f
+                  : (tip_up.effect == UpgradeEffect::AutoClickMult ? 64.f
+                                                                  : 52.f);
+          ShowHoverTip(FormatUpgradeTotalBonus(tip_up), 400.f, tip_h);
+        }
         return;
       }
     }
@@ -1922,15 +2203,15 @@ private:
     if (sn_help_btn_.state == ComponentState::Hovered &&
         PointInRect(mouse->x, mouse->y, sn_help_btn_.x, sn_help_btn_.y,
                     sn_help_btn_.width, sn_help_btn_.height)) {
-      ShowHoverTip(FormatSupernovaHelpText(), 340.f,
-                   IsPrestigeMode() ? 130.f : 110.f);
+      ShowHoverTip(FormatSupernovaHelpText(), 400.f,
+                   IsPrestigeMode() ? 140.f : 110.f);
       return;
     }
 
     if (dust_hit_.state == ComponentState::Hovered &&
         PointInRect(mouse->x, mouse->y, dust_hit_.x, dust_hit_.y,
                     dust_hit_.width, dust_hit_.height)) {
-      ShowHoverTip(FormatDustBonusText(), 340.f, 120.f);
+      ShowHoverTip(FormatDustBonusText(), 340.f, 90.f);
       return;
     }
 
@@ -1939,12 +2220,6 @@ private:
 
   std::wstring FormatDustBonusText() const {
     const double dust = G().star_dust;
-    wchar_t click_mult[32] = {};
-    wchar_t eps_mult[32] = {};
-    std::swprintf(click_mult, 32, L"%.2f",
-                  1.0 + dust * GameState::kDustClickBonusPer);
-    std::swprintf(eps_mult, 32, L"%.2f",
-                  1.0 + dust * GameState::kDustEpsBonusPer);
     std::wstringstream ss;
     ss << L"Dust bonuses:\n"
        << L"+" << game_ui::FormatEv(dust) << L" flat EPS\n";
@@ -1952,9 +2227,7 @@ private:
       ss << L"+" << game_ui::FormatEv(G().dust_flat_eps)
          << L" Dust Dynamo EPS\n";
     }
-    ss << L"x" << eps_mult << L" EPS mult (+1% each)\n"
-       << L"x" << click_mult << L" click mult (+2% each)\n"
-       << L"Mut: " << game_ui::FormatInt(std::clamp(dust * 0.1, 0.0, 50.0))
+    ss << L"Mut: " << game_ui::FormatInt(std::clamp(dust * 0.1, 0.0, 50.0))
        << L"% atom -> isotope";
     return ss.str();
   }
@@ -2024,6 +2297,10 @@ private:
     buy_p_.text = ParticleBuyLabel(ResourceKind::Proton);
     buy_n_.text = ParticleBuyLabel(ResourceKind::Neutron);
     buy_e_.text = ParticleBuyLabel(ResourceKind::Electron);
+    buy_pn_.text =
+        ComboBuyLabel(G().ResolvePairBuyAmount(), G().PairUnitPrice());
+    buy_all_.text =
+        ComboBuyLabel(G().ResolveTrioBuyAmount(), G().TrioUnitPrice());
 
     RefreshElementRows();
     RefreshUpgradeRows();
@@ -2053,6 +2330,10 @@ private:
                         ColorNeutron());
     SetButtonAffordable(buy_e_, CanBuyParticle(ResourceKind::Electron),
                         ColorElectron());
+    SetButtonAffordable(buy_pn_, G().ResolvePairBuyAmount() > 0.0,
+                        ColorPhosphor());
+    SetButtonAffordable(buy_all_, G().ResolveTrioBuyAmount() > 0.0,
+                        ColorPhosphor());
 
     for (auto& row : element_rows_) {
       if (row.element_index < 0 ||
@@ -2249,51 +2530,89 @@ private:
     count_e_.y = count_y;
     count_e_.width = count_slot - 36.f;
 
-    constexpr float kBuyH = 48.f;
-    constexpr float kBuyIcon = 40.f;
-    constexpr float kBuyGap = 10.f;
+    constexpr float kBuyH = 44.f;
+    constexpr float kBuyIcon = 36.f;
+    constexpr float kBuyGap = 8.f;
     constexpr float kBuyBatchH = 28.f;
-    // Wide enough for labels like "x123.45M (999.99B eV)".
-    float buy_btn_w = std::max(220.f, center_w - kBuyIcon - 24.f);
-    buy_btn_w = std::min(buy_btn_w, center_w - kBuyIcon - 8.f);
-    buy_p_.width = buy_n_.width = buy_e_.width = buy_btn_w;
-    buy_p_.height = buy_n_.height = buy_e_.height = kBuyH;
-    buy_p_.font_size = buy_n_.font_size = buy_e_.font_size =
-        buy_btn_w >= 300.f ? 22.f : 18.f;
+    constexpr float kIconCol = 92.f;
+    constexpr float kToggleW = 48.f;
+    constexpr float kToggleGap = 10.f;
+    constexpr int kBuyRows = 5;
+    // Button short enough to leave room for the auto-buy toggle on the right.
+    float buy_btn_w =
+        center_w - kIconCol - 8.f - kToggleW - kToggleGap - 16.f;
+    buy_btn_w = std::clamp(buy_btn_w, 140.f, 330.f);
+    buy_p_.width = buy_n_.width = buy_e_.width = buy_pn_.width =
+        buy_all_.width = buy_btn_w;
+    buy_p_.height = buy_n_.height = buy_e_.height = buy_pn_.height =
+        buy_all_.height = kBuyH;
+    const float buy_font = buy_btn_w >= 220.f ? 18.f : 15.f;
+    buy_p_.font_size = buy_n_.font_size = buy_e_.font_size = buy_font;
+    buy_pn_.font_size = buy_all_.font_size = buy_font;
     icon_p_.width = icon_p_.height = kBuyIcon;
     icon_n_.width = icon_n_.height = kBuyIcon;
     icon_e_.width = icon_e_.height = kBuyIcon;
+    constexpr float kComboIcon = 28.f;
+    icon_pn_p_.width = icon_pn_p_.height = kComboIcon;
+    icon_pn_n_.width = icon_pn_n_.height = kComboIcon;
+    icon_all_p_.width = icon_all_p_.height = kComboIcon;
+    icon_all_n_.width = icon_all_n_.height = kComboIcon;
+    icon_all_e_.width = icon_all_e_.height = kComboIcon;
 
-    const float buy_block_h = kBuyBatchH + 8.f + kBuyH * 3.f + kBuyGap * 2.f;
+    const float buy_block_h =
+        kBuyBatchH + 8.f + kBuyH * kBuyRows + kBuyGap * (kBuyRows - 1);
     const float buy_y0 = panels_top + panels_h - buy_block_h;
-    float buy_x = center_x + (center_w - (kBuyIcon + 8.f + buy_btn_w)) * 0.5f;
-    buy_x = std::clamp(buy_x, center_x,
-                       center_x + center_w - kBuyIcon - 8.f - buy_btn_w);
+    const float row_w = kIconCol + 8.f + buy_btn_w + kToggleGap + kToggleW;
+    float buy_x = center_x + (center_w - row_w) * 0.5f;
+    buy_x = std::clamp(buy_x, center_x, center_x + center_w - row_w);
 
-    buy_batch_label_.x = center_x + 8.f;
+    // Batch controls centered above the buy button column.
+    buy_batch_.item_width = 80.f;
+    const float batch_cluster_w =
+        buy_batch_label_.width + 8.f + buy_batch_.item_width * 4.f +
+        buy_batch_.gap * 3.f;
+    buy_batch_label_.x = buy_x + (row_w - batch_cluster_w) * 0.5f;
     buy_batch_label_.y = buy_y0 + 2.f;
-    buy_batch_.item_width = std::clamp(
-        (center_w - buy_batch_label_.width - 24.f) / 4.f - buy_batch_.gap, 72.f,
-        100.f);
     buy_batch_.x = buy_batch_label_.x + buy_batch_label_.width + 8.f;
     buy_batch_.y = buy_y0;
 
     const float buy_btns_y0 = buy_y0 + kBuyBatchH + 8.f;
+    const float btn_x = buy_x + kIconCol + 8.f;
+    const float tog_x = btn_x + buy_btn_w + kToggleGap;
 
-    icon_p_.x = buy_x;
-    icon_p_.y = buy_btns_y0 + 2.f;
-    buy_p_.x = icon_p_.x + kBuyIcon + 8.f;
-    buy_p_.y = buy_btns_y0;
+    auto place_row = [&](float row_y, Image* icons[], int icon_count,
+                         Button& buy, Toggle& tog) {
+      const float icon_gap = 4.f;
+      // Single large icon uses kBuyIcon; combo rows use kComboIcon.
+      const float use_icon = (icon_count == 1) ? kBuyIcon : kComboIcon;
+      const float pack_w =
+          icon_count * use_icon + (icon_count - 1) * icon_gap;
+      float ix = buy_x + (kIconCol - pack_w) * 0.5f;
+      for (int i = 0; i < icon_count; ++i) {
+        icons[i]->width = icons[i]->height = use_icon;
+        icons[i]->x = ix;
+        icons[i]->y = row_y + (kBuyH - use_icon) * 0.5f;
+        ix += use_icon + icon_gap;
+      }
+      buy.x = btn_x;
+      buy.y = row_y;
+      tog.x = tog_x;
+      tog.y = row_y + (kBuyH - tog.height) * 0.5f;
+    };
 
-    icon_n_.x = buy_x;
-    icon_n_.y = buy_btns_y0 + kBuyH + kBuyGap + 2.f;
-    buy_n_.x = buy_p_.x;
-    buy_n_.y = buy_btns_y0 + kBuyH + kBuyGap;
-
-    icon_e_.x = buy_x;
-    icon_e_.y = buy_btns_y0 + (kBuyH + kBuyGap) * 2.f + 2.f;
-    buy_e_.x = buy_p_.x;
-    buy_e_.y = buy_btns_y0 + (kBuyH + kBuyGap) * 2.f;
+    Image* row_p[] = {&icon_p_};
+    Image* row_n[] = {&icon_n_};
+    Image* row_e[] = {&icon_e_};
+    Image* row_pn[] = {&icon_pn_p_, &icon_pn_n_};
+    Image* row_all[] = {&icon_all_p_, &icon_all_n_, &icon_all_e_};
+    place_row(buy_btns_y0, row_p, 1, buy_p_, auto_p_);
+    place_row(buy_btns_y0 + (kBuyH + kBuyGap), row_n, 1, buy_n_, auto_n_);
+    place_row(buy_btns_y0 + (kBuyH + kBuyGap) * 2.f, row_e, 1, buy_e_,
+              auto_e_);
+    place_row(buy_btns_y0 + (kBuyH + kBuyGap) * 3.f, row_pn, 2, buy_pn_,
+              auto_pn_);
+    place_row(buy_btns_y0 + (kBuyH + kBuyGap) * 4.f, row_all, 3, buy_all_,
+              auto_all_);
 
     const float star_area_top = hud_panel_.y + hud_panel_.height + 8.f;
     const float star_area_bottom = buy_y0 - 8.f;
@@ -2671,6 +2990,24 @@ private:
   Button buy_p_{};
   Button buy_n_{};
   Button buy_e_{};
+  Toggle auto_p_{};
+  Toggle auto_n_{};
+  Toggle auto_e_{};
+  Image icon_pn_p_{};
+  Image icon_pn_n_{};
+  Button buy_pn_{};
+  Toggle auto_pn_{};
+  Image icon_all_p_{};
+  Image icon_all_n_{};
+  Image icon_all_e_{};
+  Button buy_all_{};
+  Toggle auto_all_{};
+  bool auto_tog_p_ = false;
+  bool auto_tog_n_ = false;
+  bool auto_tog_e_ = false;
+  bool auto_tog_pn_ = false;
+  bool auto_tog_all_ = false;
+  float auto_buy_accum_ = 0.f;
   Image icon_supernova_{};
   Button supernova_{};
   Image icon_autoclick_{};

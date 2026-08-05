@@ -16,6 +16,7 @@ struct GameAssets {
   int nucleus = -1;
   int atom = -1;
   int isotope = -1;
+  int autoclick = -1;
   int star_icons[4] = {-1, -1, -1, -1};
   std::unordered_map<std::string, int> elements;
   std::unordered_map<std::string, int> upgrades;
@@ -33,6 +34,7 @@ struct GameAssets {
     nucleus = ui_load_texture(ctx, L"assets\\icons\\nucleus.png");
     atom = ui_load_texture(ctx, L"assets\\icons\\atom.png");
     isotope = ui_load_texture(ctx, L"assets\\icons\\isotope.png");
+    autoclick = ui_load_texture(ctx, L"assets\\icons\\autoclick.png");
 
     star_icons[0] =
         ui_load_texture(ctx, StarTypeImagePath(StarType::BrownDwarf));
@@ -86,6 +88,9 @@ struct GameAssets {
         "atom_Gold",
         "crit_amplifier",
         "quantum_cpu",
+        "boost_dust_eps",
+        "boost_click_e",
+        "boost_click_p",
         "annihilation_Hydrogen",
         "annihilation_Helium",
         "annihilation_Carbon",
@@ -122,6 +127,9 @@ struct GameAssets {
         L"assets\\icons\\upgrades\\atom_Gold.png",
         L"assets\\icons\\upgrades\\crit_amplifier.png",
         L"assets\\icons\\upgrades\\quantum_cpu.png",
+        L"assets\\icons\\energy.png",
+        L"assets\\icons\\upgrades\\click_e.png",
+        L"assets\\icons\\upgrades\\click_p.png",
         L"assets\\icons\\upgrades\\annihilation.png",
         L"assets\\icons\\upgrades\\annihilation.png",
         L"assets\\icons\\upgrades\\annihilation.png",
@@ -132,7 +140,7 @@ struct GameAssets {
         L"assets\\icons\\upgrades\\annihilation.png",
         L"assets\\icons\\upgrades\\annihilation.png",
         L"assets\\icons\\upgrades\\annihilation.png"};
-    for (int i = 0; i < 35; ++i) {
+    for (int i = 0; i < 38; ++i) {
       upgrades[up_ids[i]] = ui_load_texture(ctx, up_files[i]);
     }
   }

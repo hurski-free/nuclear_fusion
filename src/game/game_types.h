@@ -60,7 +60,8 @@ inline const wchar_t* StarTypeImagePath(StarType type) {
 }
 
 inline constexpr double kSupernovaAtomGoal = 100.0;
-// Prestige (Neutron Star): 1 Dust per this many Gold atoms in stock.
+// Prestige (Neutron Star): starting Gold cost for the first Dust; each further
+// Dust in a run (and across prestiges) costs +1 Au more than the previous.
 inline constexpr double kPrestigeGoldPerDust = 10.0;
 
 // Max atomic number synthesizable on the current star.
@@ -156,6 +157,11 @@ enum class UpgradeEffect {
   AutoEps,
   AutoClickMult,
   IsotopeEpsMult,
+  // Prestige dust: flat EPS outside the dust EPS multiplier (no grade).
+  DustFlatEps,
+  // Prestige dust boosts: each level multiplies the target upgrade by effect_per_level.
+  ElectronLensBoost,
+  ProtonInjectorBoost,
 };
 
 // Grade thresholds: 10, 25, 50, 100, then every +100 (200, 300, ...).
@@ -221,6 +227,8 @@ struct UpgradeDef {
   UpgradeEffect effect = UpgradeEffect::ClickPower;
   double effect_per_level = 1.0;
   int level = 0;
+  // Kept across Supernova / Prestige soft resets.
+  bool persist_on_reset = false;
 };
 
 inline double UpgradeScaledEffect(const UpgradeDef& up) {

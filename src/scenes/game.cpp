@@ -204,6 +204,77 @@ private:
     buy_batch_.selected = buy_batch_index_;
   }
 
+  void StyleTechTabButton(Button& btn, const wchar_t* label) {
+    ApplyConsoleButtonStyle(btn, 120.f, 32.f);
+    btn.text = label;
+    btn.font_size = 18.f;
+    btn.layer = 1;
+  }
+
+  void RefreshTechTabButtonStyles() {
+    auto style_selected = [](Button& btn) {
+      btn.style_base = {
+          Color{0.10f, 0.42f, 0.18f, 1.f},
+          Border{2.f, BorderMode::In, Color{0.65f, 1.f, 0.7f, 1.f}}};
+      btn.style_hovered = {
+          Color{0.14f, 0.52f, 0.24f, 1.f},
+          Border{2.f, BorderMode::In, Color{0.8f, 1.f, 0.85f, 1.f}}};
+      btn.style_active = btn.style_hovered;
+      btn.text_color = {0.75f, 1.f, 0.8f, 1.f};
+    };
+    auto style_idle = [](Button& btn) {
+      btn.style_base = {
+          Color{0.02f, 0.12f, 0.05f, 0.85f},
+          Border{2.f, BorderMode::In, Color{0.22f, 0.55f, 0.3f, 0.9f}}};
+      btn.style_hovered = {
+          Color{0.06f, 0.28f, 0.12f, 0.95f},
+          Border{2.f, BorderMode::In, Color{0.4f, 0.85f, 0.5f, 1.f}}};
+      btn.style_active = {
+          Color{0.10f, 0.38f, 0.16f, 1.f},
+          Border{2.f, BorderMode::In, Color{0.55f, 1.f, 0.65f, 1.f}}};
+      btn.text_color = {0.4f, 0.75f, 0.48f, 1.f};
+    };
+
+    if (tech_tab_index_ == 0) {
+      style_selected(tech_tab_btn_);
+      style_idle(dtech_tab_btn_);
+    } else {
+      style_idle(tech_tab_btn_);
+      style_selected(dtech_tab_btn_);
+    }
+  }
+
+  void SelectTechTab(int tab) {
+    const int next = (tab == 1 && G().DTechUnlocked()) ? 1 : 0;
+    if (next == tech_tab_index_) {
+      RefreshTechTabButtonStyles();
+      return;
+    }
+    tech_tab_index_ = next;
+    RefreshTechTabButtonStyles();
+    RefreshUpgradeRows();
+    Relayout();
+  }
+
+  void SyncTechTabVisibility() {
+    if (!app_) {
+      return;
+    }
+    const bool unlocked = G().DTechUnlocked();
+    if (unlocked) {
+      Hide(tech_header_);
+      tech_tab_btn_.disabled = false;
+      dtech_tab_btn_.disabled = false;
+      RefreshTechTabButtonStyles();
+    } else {
+      tech_tab_index_ = 0;
+      Hide(tech_tab_btn_);
+      Hide(dtech_tab_btn_);
+      tech_header_.disabled = false;
+      tech_header_.text = L"Tech";
+    }
+  }
+
   void Rebuild(AppState& app) {
     canvas_scene_ = Scene{};
     ui_scene_ = Scene{};
@@ -243,6 +314,13 @@ private:
     tech_header_.text = L"Tech";
     tech_header_.width = 120.f;
     tech_header_.height = 36.f;
+
+    StyleTechTabButton(tech_tab_btn_, L"Tech");
+    StyleTechTabButton(dtech_tab_btn_, L"D Tech");
+    tech_tab_btn_.on_click = [this]() { SelectTechTab(0); };
+    dtech_tab_btn_.on_click = [this]() { SelectTechTab(1); };
+    tech_tab_index_ = 0;
+    RefreshTechTabButtonStyles();
 
     StyleHudLabel(lab_batch_label_, 16.f);
     lab_batch_label_.text = L"Batch";
@@ -361,6 +439,7 @@ private:
 
     SetupHowToModal();
     SetupResetModal();
+    SetupPrestigeModal();
 
     star_base_size_ = 160.f;
     star_scale_ = 1.f;
@@ -385,6 +464,29 @@ private:
     supernova_.font_size = 24.f;
     supernova_.layer = 1;
     supernova_.on_click = [this]() { OnSupernovaClick(); };
+
+    // Auto-click / click-mult indicator: top-right of the central block.
+    game_ui::ClearImageStyle(icon_autoclick_);
+    icon_autoclick_.texture_id = assets_.autoclick;
+    icon_autoclick_.width = icon_autoclick_.height = 48.f;
+    icon_autoclick_.layer = 1;
+    StyleHudLabel(autoclick_label_, 18.f);
+    autoclick_label_.width = 72.f;
+    autoclick_label_.height = 24.f;
+    autoclick_label_.layer = 1;
+    autoclick_label_.color = {0.65f, 1.f, 0.72f, 1.f};
+    autoclick_hit_.width = 56.f;
+    autoclick_hit_.height = 72.f;
+    autoclick_hit_.layer = 2;
+    autoclick_hit_.text.clear();
+    autoclick_hit_.style_base = {Color{0.f, 0.f, 0.f, 0.f}, Border{}};
+    autoclick_hit_.style_hovered = autoclick_hit_.style_base;
+    autoclick_hit_.style_active = autoclick_hit_.style_base;
+    autoclick_hit_.style_disabled = autoclick_hit_.style_base;
+    autoclick_hit_.transition = {};
+    Hide(icon_autoclick_);
+    Hide(autoclick_label_);
+    Hide(autoclick_hit_);
 
     ApplyConsoleButtonStyle(sn_help_btn_, 36.f, 36.f);
     sn_help_btn_.text = L"?";
@@ -445,7 +547,7 @@ private:
       ApplyUiFont(row.name);
 
       auto setup_stock_count = [this](Label& label) {
-        label.font_size = 22.f;
+        label.font_size = 16.f;
         label.color = {0.55f, 0.95f, 0.65f, 1.f};
         label.width = 72.f;
         label.height = 64.f;
@@ -629,7 +731,8 @@ private:
 
     ui_scene_.components = {
         &title_,           &lab_header_,      &tech_header_,
-        &lab_batch_label_, &lab_batch_,       &buy_batch_label_,
+        &tech_tab_btn_,    &dtech_tab_btn_,    &lab_batch_label_, &lab_batch_,
+        &buy_batch_label_,
         &buy_batch_,       &hud_panel_,       &energy_icon_,
         &energy_label_,    &star_label_,      &crit_label_,
         &eps_label_,       &dust_label_,      &dust_hit_,
@@ -639,9 +742,10 @@ private:
         &star_hint_,       &icon_p_,
         &buy_p_,           &icon_n_,          &buy_n_,
         &icon_e_,          &buy_e_,           &icon_supernova_,
-        &supernova_,       &sn_help_btn_,     &lab_scroll_,
+        &supernova_,       &icon_autoclick_,  &autoclick_label_,
+        &autoclick_hit_,   &sn_help_btn_,     &lab_scroll_,
         &tech_scroll_,     &howto_modal_,     &reset_modal_,
-        &tech_tip_panel_,  &tech_tip_label_,
+        &prestige_modal_,  &tech_tip_panel_,  &tech_tip_label_,
     };
     for (auto& ft : float_texts_) {
       ui_scene_.components.push_back(&ft.label);
@@ -769,15 +873,20 @@ private:
         L"At levels 10, 25, 50, 100, then every +100, Click / EPS gain a "
         L"grade multiplier (x10, x100, ...); isotope coils use x2, x4, "
         L"x8, ...\n"
+        L"Dust boosts live in D Tech (unlocks after the first Supernova, when "
+        L"Dust appears): Dust Dynamo (+10 EPS for 1 Dust), plus Electron Lens / "
+        L"Proton Injector x10 boosts that survive Prestige.\n"
         L"Critical Cascade (+1 crit mult) costs atoms H..Fe; Quantum "
-        L"Processor is late multi-cost.",
+        L"Processor adds click multiplier (one click counts as many).",
         {1.f, 1.f, 1.f, 1.f}, 120.f);
     SetupHowToTip(
         4, assets_.supernova,
         L"Supernova & Prestige\n"
         L"Hover ? beside the star for the goal. Stock 100 atoms of the star's "
         L"cap element (Helium -> Oxygen -> Iron) to Supernova.\n"
-        L"On Neutron Star, Prestige gives 1 Dust per 10 Gold atoms in stock. "
+        L"On Neutron Star, Prestige converts Gold stock into Dust with a rising "
+        L"cost: first Dust starts at 10 Au, each next Dust needs +1 Au more "
+        L"(10, 11, 12, ...). That counter survives Prestige.\n"
         L"Both reset resources and Tech; isotope discoveries keep.",
         {1.f, 1.f, 1.f, 1.f}, 104.f);
 
@@ -900,6 +1009,68 @@ private:
                                &reset_cancel_btn_};
   }
 
+  void SetupPrestigeModal() {
+    prestige_modal_.title = L"Prestige?";
+    prestige_modal_.open = false;
+    prestige_modal_.close_on_overlay_click = true;
+    prestige_modal_.width = 640.f;
+    prestige_modal_.height = 340.f;
+    prestige_modal_.title_height = 44.f;
+    prestige_modal_.layer = 110;
+    prestige_modal_.overlay_color = {0.f, 0.f, 0.f, 0.72f};
+    prestige_modal_.title_color = ColorPhosphor();
+    prestige_modal_.title_bar_color = {0.02f, 0.1f, 0.04f, 1.f};
+    prestige_modal_.style_base = {
+        Color{0.02f, 0.07f, 0.04f, 0.98f},
+        Border{2.f, BorderMode::In, Color{0.3f, 0.85f, 0.4f, 1.f}}};
+    prestige_modal_.style_hovered = prestige_modal_.style_base;
+    prestige_modal_.style_active = prestige_modal_.style_base;
+    prestige_modal_.on_close = [this]() { prestige_modal_.open = false; };
+    ApplyUiFont(prestige_modal_);
+
+    StyleHowToText(prestige_body_, 18.f);
+    prestige_body_.width = 580.f;
+    prestige_body_.height = 190.f;
+    prestige_body_.x = 30.f;
+    prestige_body_.y = 12.f;
+    RefreshPrestigeModalText();
+
+    ApplyConsoleButtonStyle(prestige_confirm_btn_, 180.f, 44.f);
+    prestige_confirm_btn_.text = L"Confirm";
+    prestige_confirm_btn_.font_size = 22.f;
+    prestige_confirm_btn_.on_click = [this]() { ConfirmPrestige(); };
+
+    ApplyConsoleButtonStyle(prestige_cancel_btn_, 180.f, 44.f);
+    prestige_cancel_btn_.text = L"Cancel";
+    prestige_cancel_btn_.font_size = 22.f;
+    prestige_cancel_btn_.on_click = [this]() { prestige_modal_.open = false; };
+
+    const float btn_y =
+        prestige_modal_.height - prestige_modal_.title_height - 56.f;
+    prestige_confirm_btn_.x = 40.f;
+    prestige_confirm_btn_.y = btn_y;
+    prestige_cancel_btn_.x =
+        prestige_modal_.width - prestige_cancel_btn_.width - 40.f;
+    prestige_cancel_btn_.y = btn_y;
+
+    prestige_modal_.components = {&prestige_body_, &prestige_confirm_btn_,
+                                  &prestige_cancel_btn_};
+  }
+
+  void RefreshPrestigeModalText() {
+    std::wstringstream ss;
+    ss << L"Prestige will reset energy, particles, Lab stock and all Tech\n"
+       << L"upgrades. Dust and D Tech upgrades are kept.\n"
+       << L"Isotope discoveries also persist.\n\n"
+       << L"Next Dust costs "
+       << game_ui::FormatInt(G().prestige_gold_next) << L" Au "
+       << L"(+1 Au per Dust thereafter).\n"
+       << L"You will receive: +"
+       << game_ui::FormatInt(G().PrestigeDustReward()) << L" Dust\n\n"
+       << L"Continue?";
+    prestige_body_.text = ss.str();
+  }
+
   void SetupBuyControl(Image& icon, Button& buy, int tex, ResourceKind kind) {
     game_ui::ClearImageStyle(icon);
     icon.texture_id = tex;
@@ -973,23 +1144,51 @@ private:
     if (!AscendAvailable()) {
       return;
     }
+    // Prestige uses a confirmation dialog; Supernova keeps the arm timer.
+    if (IsPrestigeMode()) {
+      OpenPrestigeConfirm();
+      return;
+    }
     if (!supernova_armed_) {
       supernova_armed_ = true;
       supernova_arm_t_ = 3.f;
       supernova_.text = L"Confirm?";
       return;
     }
-    const bool ok =
-        IsPrestigeMode() ? G().TriggerPrestige() : G().TriggerSupernova();
+    const bool ok = G().TriggerSupernova();
     if (ok) {
       supernova_armed_ = false;
       supernova_arm_t_ = 0.f;
       supernova_.text = AscendButtonLabel();
       SaveGame(G());
+      SelectTechTab(1);
       RequestHudRefresh();
       RefreshLabels();
       Relayout();
     }
+  }
+
+  void OpenPrestigeConfirm() {
+    RefreshPrestigeModalText();
+    prestige_modal_.open = true;
+  }
+
+  void ConfirmPrestige() {
+    prestige_modal_.open = false;
+    if (!PrestigeAvailable()) {
+      return;
+    }
+    if (!G().TriggerPrestige()) {
+      return;
+    }
+    supernova_armed_ = false;
+    supernova_arm_t_ = 0.f;
+    supernova_.text = AscendButtonLabel();
+    SaveGame(G());
+    SelectTechTab(1);
+    RequestHudRefresh();
+    RefreshLabels();
+    Relayout();
   }
 
   void UpdateSupernovaConfirm(float dt) {
@@ -1088,7 +1287,7 @@ private:
       img.texture_id = tex;
     };
     auto setup_label = [this](Label& label, float w = 36.f) {
-      label.font_size = 18.f;
+      label.font_size = 16.f;
       label.color = {0.75f, 1.f, 0.8f, 1.f};
       label.width = w;
       label.height = 32.f;
@@ -1245,20 +1444,20 @@ private:
       SetCostFormulaAmounts(row.cost_atom, 1, el.electrons_needed, e_atom);
 
       row.craft_nucleus.disabled =
-          G().ResolveCraftBatchCount(G().MaxNucleusCraft(el)) <= 0;
+          G().ResolveCraftBatchAmount(G().MaxNucleusCraft(el)) <= 0.0;
       row.craft_atom.disabled =
-          G().ResolveCraftBatchCount(G().MaxAtomCraft(el)) <= 0;
+          G().ResolveCraftBatchAmount(G().MaxAtomCraft(el)) <= 0.0;
 
-      const int nuc_amt =
-          G().ResolveCraftBatchCount(G().MaxNucleusCraft(el));
-      const int atom_amt =
-          G().ResolveCraftBatchCount(G().MaxAtomCraft(el));
-      auto craft_label = [](const wchar_t* kind, int amt, CraftBatch batch) {
+      const double nuc_amt =
+          G().ResolveCraftBatchAmount(G().MaxNucleusCraft(el));
+      const double atom_amt =
+          G().ResolveCraftBatchAmount(G().MaxAtomCraft(el));
+      auto craft_label = [](const wchar_t* kind, double amt, CraftBatch batch) {
         if (batch == CraftBatch::Max) {
           return std::wstring(kind) + L" x" + game_ui::FormatInt(amt);
         }
         const int want = BatchMultiplier(batch);
-        const int show = amt > 0 ? amt : want;
+        const double show = amt > 0.0 ? amt : static_cast<double>(want);
         return std::wstring(kind) + L" x" + game_ui::FormatInt(show);
       };
       row.craft_nucleus.text =
@@ -1291,8 +1490,13 @@ private:
 
   void RefreshUpgradeRows() {
     visible_upgrade_indices_.clear();
+    const bool show_dust = tech_tab_index_ == 1 && G().DTechUnlocked();
     for (int i = 0; i < static_cast<int>(G().upgrades.size()); ++i) {
-      if (G().IsUpgradeVisible(G().upgrades[i])) {
+      const auto& up = G().upgrades[i];
+      if (up.persist_on_reset != show_dust) {
+        continue;
+      }
+      if (G().IsUpgradeVisible(up)) {
         visible_upgrade_indices_.push_back(i);
       }
     }
@@ -1414,9 +1618,33 @@ private:
   }
 
   std::wstring FormatUpgradeTotalBonus(const UpgradeDef& up) const {
-    const double total = UpgradeScaledEffect(up);
     std::wstringstream ss;
     ss << L"Total: ";
+    if (up.effect == UpgradeEffect::DustFlatEps) {
+      ss << L"+" << game_ui::FormatEv(UpgradeScaledEffect(up)) << L" EPS";
+      return ss.str();
+    }
+    if (up.effect == UpgradeEffect::ElectronLensBoost ||
+        up.effect == UpgradeEffect::ProtonInjectorBoost) {
+      const double mult = up.level > 0
+                              ? std::pow(up.effect_per_level,
+                                         static_cast<double>(up.level))
+                              : 1.0;
+      ss << L"x" << game_ui::FormatInt(mult);
+      if (up.effect == UpgradeEffect::ElectronLensBoost) {
+        ss << L" Electron Lens EPS";
+      } else {
+        ss << L" Proton Injector click";
+      }
+      return ss.str();
+    }
+
+    double total = UpgradeScaledEffect(up);
+    if (up.id == "click_e") {
+      total *= G().DustBoostMultiplier(UpgradeEffect::ElectronLensBoost);
+    } else if (up.id == "click_p") {
+      total *= G().DustBoostMultiplier(UpgradeEffect::ProtonInjectorBoost);
+    }
     switch (up.effect) {
       case UpgradeEffect::ClickPower:
         ss << L"+" << game_ui::FormatEv(total) << L" eV click";
@@ -1431,10 +1659,16 @@ private:
         ss << L"+" << game_ui::FormatEv(total) << L" crit mult";
         break;
       case UpgradeEffect::AutoClickMult:
-        ss << L"+" << game_ui::FormatEv(total) << L" auto-click mult";
+        ss << L"+" << game_ui::FormatEv(total) << L" click mult\n"
+           << L"Click: " << game_ui::FormatEv(G().EffectiveClickPower())
+           << L" eV";
         break;
       case UpgradeEffect::IsotopeEpsMult:
         ss << L"+" << game_ui::FormatEv(total) << L" isotope EPS mult";
+        break;
+      case UpgradeEffect::DustFlatEps:
+      case UpgradeEffect::ElectronLensBoost:
+      case UpgradeEffect::ProtonInjectorBoost:
         break;
     }
     if (UpgradeUsesGrade(up.effect)) {
@@ -1552,8 +1786,10 @@ private:
         if (row_index >= 0 &&
             row_index < static_cast<int>(G().elements.size())) {
           const auto& el = G().elements[row_index];
-          ss << L"\n+"
-             << game_ui::FormatEv(G().IsotopeEpsPer(el) * G().isotope_eps_mult)
+          const double base = G().IsotopeEpsPer(el);
+          const double with_coil = base * G().isotope_eps_mult;
+          ss << L"\nBase +" << game_ui::FormatEv(base) << L" eV/s each"
+             << L"\nWith coils +" << game_ui::FormatEv(with_coil)
              << L" eV/s each";
         }
         return ss.str();
@@ -1577,7 +1813,7 @@ private:
       return;
     }
     // Modal open or any mouse button held: never show a sticky tip.
-    if (howto_modal_.open || reset_modal_.open) {
+    if (howto_modal_.open || reset_modal_.open || prestige_modal_.open) {
       ClearDelayedTipHover();
       HideHoverTip();
       return;
@@ -1629,17 +1865,33 @@ private:
         if (kind == DelayedTipKind::None) {
           continue;
         }
-        const float tip_h =
-            (kind == DelayedTipKind::Isotope || kind == DelayedTipKind::Nucleus ||
-             kind == DelayedTipKind::Atom)
-                ? 84.f
-                : 64.f;
-        ArmDelayedTip(i, kind, DelayedTipText(i, kind), 300.f, tip_h);
+        const float tip_w =
+            (kind == DelayedTipKind::Isotope) ? 360.f : 300.f;
+        const float tip_h = (kind == DelayedTipKind::Isotope) ? 110.f
+                            : (kind == DelayedTipKind::Nucleus ||
+                               kind == DelayedTipKind::Atom)
+                                ? 84.f
+                                : 64.f;
+        ArmDelayedTip(i, kind, DelayedTipText(i, kind), tip_w, tip_h);
         return;
       }
     }
 
     ClearDelayedTipHover();
+
+    // Click-mult icon tip (center panel).
+    if (!autoclick_hit_.disabled &&
+        autoclick_hit_.state == ComponentState::Hovered &&
+        PointInRect(mouse->x, mouse->y, autoclick_hit_.x, autoclick_hit_.y,
+                    autoclick_hit_.width, autoclick_hit_.height)) {
+      std::wstringstream ss;
+      ss << L"Click multiplier x"
+         << game_ui::FormatInt(G().auto_click_mult) << L"\n"
+         << L"Click: " << game_ui::FormatEv(G().EffectiveClickPower())
+         << L" eV";
+      ShowHoverTip(ss.str(), 280.f, 56.f);
+      return;
+    }
 
     // Tech icon tips only while the cursor is inside the Tech scroll viewport.
     // ScrollView can leave child Hovered stuck after the mouse leaves the panel.
@@ -1657,7 +1909,11 @@ private:
           continue;
         }
         ShowHoverTip(FormatUpgradeTotalBonus(G().upgrades[row.upgrade_index]),
-                     300.f, 52.f);
+                     300.f,
+                     G().upgrades[row.upgrade_index].effect ==
+                             UpgradeEffect::AutoClickMult
+                         ? 64.f
+                         : 52.f);
         return;
       }
     }
@@ -1685,14 +1941,20 @@ private:
     const double dust = G().star_dust;
     wchar_t click_mult[32] = {};
     wchar_t eps_mult[32] = {};
-    std::swprintf(click_mult, 32, L"%.2f", 1.0 + dust * 0.05);
-    std::swprintf(eps_mult, 32, L"%.2f", 1.0 + dust * 0.02);
+    std::swprintf(click_mult, 32, L"%.2f",
+                  1.0 + dust * GameState::kDustClickBonusPer);
+    std::swprintf(eps_mult, 32, L"%.2f",
+                  1.0 + dust * GameState::kDustEpsBonusPer);
     std::wstringstream ss;
     ss << L"Dust bonuses:\n"
-       << L"+" << game_ui::FormatEv(dust) << L" flat EPS\n"
-       << L"x" << eps_mult << L" EPS mult (+2% each)\n"
-       << L"x" << click_mult << L" click mult (+5% each)\n"
-       << L"Mut: " << game_ui::FormatInt(std::clamp(dust * 0.1, 0.0, 95.0))
+       << L"+" << game_ui::FormatEv(dust) << L" flat EPS\n";
+    if (G().dust_flat_eps > 0.0) {
+      ss << L"+" << game_ui::FormatEv(G().dust_flat_eps)
+         << L" Dust Dynamo EPS\n";
+    }
+    ss << L"x" << eps_mult << L" EPS mult (+1% each)\n"
+       << L"x" << click_mult << L" click mult (+2% each)\n"
+       << L"Mut: " << game_ui::FormatInt(std::clamp(dust * 0.1, 0.0, 50.0))
        << L"% atom -> isotope";
     return ss.str();
   }
@@ -1704,11 +1966,12 @@ private:
       const double reward = G().PrestigeDustReward();
       std::wstringstream ss;
       ss << L"Prestige (Neutron Star):\n"
-         << L"1 Dust per " << game_ui::FormatInt(kPrestigeGoldPerDust)
-         << L" Gold atoms\nHave: " << game_ui::FormatInt(have) << L" Au\n"
+         << L"Next Dust: " << game_ui::FormatInt(G().prestige_gold_next)
+         << L" Au, then +1 Au each\n"
+         << L"Have: " << game_ui::FormatInt(have) << L" Au\n"
          << L"Reward: +" << game_ui::FormatInt(reward) << L" Dust\n"
          << L"Resets resources and Tech;\n"
-         << L"keeps Dust and isotopes.";
+         << L"keeps Dust, D Tech and isotopes.";
       return ss.str();
     }
 
@@ -1751,7 +2014,7 @@ private:
           mult_buf;
     }
     eps_label_.text = L"EPS: " + game_ui::FormatEv(G().Eps()) + L"/s   Click: " +
-                      game_ui::FormatEv(G().click_power);
+                      game_ui::FormatEv(G().EffectiveClickPower());
     dust_label_.text = L"Dust: " + game_ui::FormatInt(G().star_dust);
     count_p_.text = game_ui::FormatInt(G().protons);
     count_n_.text = game_ui::FormatInt(G().neutrons);
@@ -1800,11 +2063,11 @@ private:
       const auto& el = G().elements[row.element_index];
       SetButtonAffordable(
           row.craft_nucleus,
-          G().ResolveCraftBatchCount(G().MaxNucleusCraft(el)) > 0,
+          G().ResolveCraftBatchAmount(G().MaxNucleusCraft(el)) > 0.0,
           ColorPhosphor());
       SetButtonAffordable(
           row.craft_atom,
-          G().ResolveCraftBatchCount(G().MaxAtomCraft(el)) > 0,
+          G().ResolveCraftBatchAmount(G().MaxAtomCraft(el)) > 0.0,
           ColorPhosphor());
     }
     for (auto& row : upgrade_rows_) {
@@ -1861,6 +2124,8 @@ private:
     howto_modal_.screen_height = h;
     reset_modal_.screen_width = w;
     reset_modal_.screen_height = h;
+    prestige_modal_.screen_width = w;
+    prestige_modal_.screen_height = h;
     const float bottom_ui = settings_btn_.y - kGap;
 
     title_.x = kMargin;
@@ -1870,17 +2135,16 @@ private:
     const float content_top = title_.y + kHeaderH + 4.f;
     const float content_w = w - kMargin * 2.f;
 
-    float tech_w = std::clamp(content_w * 0.30f, 300.f, 460.f);
-    float lab_w = tech_w * 1.2f;  // Lab is 20% wider than Tech.
-    float center_w = content_w - lab_w - tech_w - kGap * 2.f;
+    // Lab and Tech share the same width; +20% vs the former Tech base.
+    float side_w = std::clamp(content_w * 0.30f, 300.f, 460.f) * 1.2f;
+    float center_w = content_w - side_w * 2.f - kGap * 2.f;
     if (center_w < 300.f) {
-      const float available =
-          std::max(0.f, content_w - 300.f - kGap * 2.f);
-      tech_w = std::max(240.f, available / 2.2f);
-      lab_w = tech_w * 1.2f;
-      center_w = content_w - lab_w - tech_w - kGap * 2.f;
+      side_w = std::max(260.f, (content_w - 300.f - kGap * 2.f) * 0.5f);
+      center_w = content_w - side_w * 2.f - kGap * 2.f;
     }
     center_w = std::max(260.f, center_w);
+    const float lab_w = side_w;
+    const float tech_w = side_w;
 
     const float left_x = kMargin;
     const float center_x = left_x + lab_w + kGap;
@@ -1896,8 +2160,23 @@ private:
                                          UiFont()) +
                              8.f);
     }
-    tech_header_.x = right_x + 4.f;
-    tech_header_.y = content_top;
+    SyncTechTabVisibility();
+    if (app_ && G().DTechUnlocked()) {
+      const float tab_gap = 8.f;
+      const float tab_w =
+          std::clamp((tech_w - 8.f - tab_gap) * 0.5f, 96.f, 140.f);
+      tech_tab_btn_.width = tab_w;
+      dtech_tab_btn_.width = tab_w;
+      tech_tab_btn_.height = 32.f;
+      dtech_tab_btn_.height = 32.f;
+      tech_tab_btn_.x = right_x + 4.f;
+      tech_tab_btn_.y = content_top;
+      dtech_tab_btn_.x = tech_tab_btn_.x + tab_w + tab_gap;
+      dtech_tab_btn_.y = content_top;
+    } else {
+      tech_header_.x = right_x + 4.f;
+      tech_header_.y = content_top;
+    }
 
     const float batch_row_y = content_top + 30.f;
     lab_batch_label_.x = left_x + 4.f;
@@ -2078,6 +2357,32 @@ private:
     } else {
       Hide(icon_supernova_);
       Hide(supernova_);
+    }
+
+    // Click-mult indicator: top-right of the central block.
+    if (G().auto_click_mult > 1.0 + 1e-9) {
+      constexpr float kAutoIcon = 48.f;
+      icon_autoclick_.width = icon_autoclick_.height = kAutoIcon;
+      icon_autoclick_.x = center_x + center_w - kAutoIcon - 8.f;
+      icon_autoclick_.y = star_area_top + 4.f;
+      autoclick_label_.text =
+          L"x" + game_ui::FormatInt(G().auto_click_mult);
+      autoclick_label_.width = std::max(48.f, kAutoIcon + 8.f);
+      autoclick_label_.height = 22.f;
+      autoclick_label_.x =
+          icon_autoclick_.x +
+          (kAutoIcon - autoclick_label_.width) * 0.5f;
+      autoclick_label_.y = icon_autoclick_.y + kAutoIcon + 2.f;
+      autoclick_hit_.width = kAutoIcon + 8.f;
+      autoclick_hit_.height = kAutoIcon + autoclick_label_.height + 6.f;
+      autoclick_hit_.x = icon_autoclick_.x - 4.f;
+      autoclick_hit_.y = icon_autoclick_.y;
+      autoclick_hit_.disabled = false;
+    } else {
+      Hide(icon_autoclick_);
+      Hide(autoclick_label_);
+      Hide(autoclick_hit_);
+      autoclick_hit_.disabled = true;
     }
 
     // Help "?" sits to the left of the star.
@@ -2300,6 +2605,9 @@ private:
   Label title_{};
   Label lab_header_{};
   Label tech_header_{};
+  Button tech_tab_btn_{};
+  Button dtech_tab_btn_{};
+  int tech_tab_index_ = 0;
   Label lab_batch_label_{};
   RadioGroup lab_batch_{};
   Label buy_batch_label_{};
@@ -2344,6 +2652,11 @@ private:
   Button reset_confirm_btn_{};
   Button reset_cancel_btn_{};
 
+  Modal prestige_modal_{};
+  Text prestige_body_{};
+  Button prestige_confirm_btn_{};
+  Button prestige_cancel_btn_{};
+
   Label star_hint_{};
   bool star_hint_dismissed_ = false;
   float star_base_size_ = 220.f;
@@ -2360,6 +2673,9 @@ private:
   Button buy_e_{};
   Image icon_supernova_{};
   Button supernova_{};
+  Image icon_autoclick_{};
+  Label autoclick_label_{};
+  Button autoclick_hit_{};
   Button sn_help_btn_{};
   bool supernova_visible_ = false;
   bool supernova_armed_ = false;

@@ -1,4 +1,5 @@
 build
+artifacts
 tools/jdk17/
 mobile/local.properties
 mobile/.gradle/

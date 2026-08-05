@@ -1,0 +1,33 @@
+#include <winver.h>
+
+// ID 1 is the default application icon shown by Explorer / Task Manager.
+1 ICON "icon.ico"
+
+1 VERSIONINFO
+FILEVERSION    1,0,0,0
+PRODUCTVERSION 1,0,0,0
+FILEFLAGSMASK  VS_FFI_FILEFLAGSMASK
+FILEFLAGS      0
+FILEOS         VOS_NT_WINDOWS32
+FILETYPE       VFT_APP
+FILESUBTYPE    VFT2_UNKNOWN
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "CompanyName",      "Nuclear Fusion"
+      VALUE "FileDescription",  "Nuclear Fusion"
+      VALUE "FileVersion",      "1.0.0.0"
+      VALUE "InternalName",     "nuclear_fusion"
+      VALUE "LegalCopyright",   ""
+      VALUE "OriginalFilename", "nuclear_fusion.exe"
+      VALUE "ProductName",      "Nuclear Fusion"
+      VALUE "ProductVersion",   "1.0.0.0"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x0409, 1200
+  END
+END

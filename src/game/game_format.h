@@ -8,21 +8,62 @@
 
 namespace game_ui {
 
-// Counts / costs: whole numbers, no trailing decimals (K/M/B/T when large).
+struct NumSuffix {
+  double threshold;
+  const wchar_t* suffix;
+};
+
+// Short-scale suffixes used by FormatInt / FormatEv.
+inline constexpr NumSuffix kNumSuffixes[] = {
+    {1.0e63, L"Vg"},   // vigintillion
+    {1.0e60, L"Nod"},  // novemdecillion
+    {1.0e57, L"Ocd"},  // octodecillion
+    {1.0e54, L"Spd"},  // septendecillion
+    {1.0e51, L"Sxd"},  // sexdecillion
+    {1.0e48, L"Qid"},  // quindecillion
+    {1.0e45, L"Qad"},  // quattuordecillion
+    {1.0e42, L"Td"},   // tredecillion
+    {1.0e39, L"Dd"},   // duodecillion
+    {1.0e36, L"Ud"},   // undecillion
+    {1.0e33, L"Dc"},   // decillion
+    {1.0e30, L"No"},   // nonillion
+    {1.0e27, L"Oc"},   // octillion
+    {1.0e24, L"Sp"},   // septillion
+    {1.0e21, L"Sx"},   // sextillion
+    {1.0e18, L"Qi"},   // quintillion
+    {1.0e15, L"Qa"},   // quadrillion
+    {1.0e12, L"T"},
+    {1.0e9, L"B"},
+    {1.0e6, L"M"},
+    {1.0e3, L"K"},
+};
+
+inline std::wstring FormatScaled(double v, int decimals) {
+  wchar_t buf[64] = {};
+  const double a = std::fabs(v);
+  // Beyond the largest named suffix → scientific notation.
+  if (a >= 1.0e66) {
+    std::swprintf(buf, 64, L"%.2e", v);
+    return buf;
+  }
+  for (const auto& s : kNumSuffixes) {
+    if (a >= s.threshold) {
+      std::swprintf(buf, 64, L"%.*f%s", decimals, v / s.threshold, s.suffix);
+      return buf;
+    }
+  }
+  return {};
+}
+
+// Counts / costs: whole numbers, no trailing decimals (K/M/B/T… when large).
 inline std::wstring FormatInt(double v) {
   wchar_t buf[64] = {};
   const double a = std::fabs(v);
-  if (a >= 1.0e12) {
-    std::swprintf(buf, 64, L"%.2fT", v / 1.0e12);
-  } else if (a >= 1.0e9) {
-    std::swprintf(buf, 64, L"%.2fB", v / 1.0e9);
-  } else if (a >= 1.0e6) {
-    std::swprintf(buf, 64, L"%.2fM", v / 1.0e6);
-  } else if (a >= 1000.0) {
-    std::swprintf(buf, 64, L"%.1fK", v / 1000.0);
-  } else {
-    std::swprintf(buf, 64, L"%.0f", std::round(v));
+  if (a >= 1000.0) {
+    // K uses 1 decimal; larger suffixes use 2.
+    return FormatScaled(v, a >= 1.0e6 ? 2 : 1);
   }
+  std::swprintf(buf, 64, L"%.0f", std::round(v));
   return buf;
 }
 
@@ -30,15 +71,10 @@ inline std::wstring FormatInt(double v) {
 inline std::wstring FormatEv(double v) {
   wchar_t buf[64] = {};
   const double a = std::fabs(v);
-  if (a >= 1.0e12) {
-    std::swprintf(buf, 64, L"%.2fT", v / 1.0e12);
-  } else if (a >= 1.0e9) {
-    std::swprintf(buf, 64, L"%.2fB", v / 1.0e9);
-  } else if (a >= 1.0e6) {
-    std::swprintf(buf, 64, L"%.2fM", v / 1.0e6);
-  } else if (a >= 1000.0) {
-    std::swprintf(buf, 64, L"%.1fK", v / 1000.0);
-  } else if (std::fabs(v - std::round(v)) < 1e-6) {
+  if (a >= 1000.0) {
+    return FormatScaled(v, a >= 1.0e6 ? 2 : 1);
+  }
+  if (std::fabs(v - std::round(v)) < 1e-6) {
     std::swprintf(buf, 64, L"%.0f", std::round(v));
   } else if (a >= 10.0) {
     std::swprintf(buf, 64, L"%.1f", v);

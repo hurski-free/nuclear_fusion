@@ -1165,7 +1165,9 @@ private:
         L"Dust boosts live in D Tech (unlocks after the first Supernova, when "
         L"Dust appears): Dust Dynamo (+20 EPS for 1 Dust), Dust Click (+10 eV "
         L"click for 1 Dust), Auto Tech (unlocks exclusive auto-buy toggles "
-        L"next to Tech Buy buttons), plus Electron Lens / "
+        L"next to Tech Buy buttons), Element Accelerators (x2 that element's "
+        L"atom EPS, 10 Dust, exponential), Chaotic Accelerator (x2 total EPS, "
+        L"50 Dust, scale 3), plus Electron Lens / "
         L"Proton Injector x10 boosts that survive Prestige.\n"
         L"Critical Cascade (+1 crit mult) costs atoms H..Fe; Quantum "
         L"Processor adds click multiplier (one click counts as many).",
@@ -1983,20 +1985,36 @@ private:
       case UpgradeEffect::ProtonInjectorBoost:
         return L"x" + game_ui::FormatEv(v) +
                L" Proton Injector click (permanent)";
+      case UpgradeEffect::ElementAtomEpsBoost:
+        return L"x" + game_ui::FormatEv(v) +
+               L" element atom EPS (permanent)";
+      case UpgradeEffect::ChaoticEpsBoost:
+        return L"x" + game_ui::FormatEv(v) +
+               L" total EPS (permanent)";
     }
     return up.description;
   }
 
   // Passive for a single upgrade's contribution (D-Tech boosts included where
   // relevant).
-  double UpgradeBonusTotal(const UpgradeDef& up) const {
-    double total = UpgradeScaledEffect(up);
+  // D Tech multiplier applied to this Tech upgrade (1 = none).
+  double UpgradeExternalBoostMult(const UpgradeDef& up) const {
     if (up.id == "click_e") {
-      total *= G().DustBoostMultiplier(UpgradeEffect::ElectronLensBoost);
-    } else if (up.id == "click_p") {
-      total *= G().DustBoostMultiplier(UpgradeEffect::ProtonInjectorBoost);
+      return G().DustBoostMultiplier(UpgradeEffect::ElectronLensBoost);
     }
-    return total;
+    if (up.id == "click_p") {
+      return G().DustBoostMultiplier(UpgradeEffect::ProtonInjectorBoost);
+    }
+    if (up.effect == UpgradeEffect::AutoEps && up.id.rfind("atom_", 0) == 0) {
+      return G().ElementAtomEpsBoostMult(up.id.substr(5));
+    }
+    return 1.0;
+  }
+
+  // Value for a single upgrade's contribution (D-Tech boosts included where
+  // relevant).
+  double UpgradeBonusTotal(const UpgradeDef& up) const {
+    return UpgradeScaledEffect(up) * UpgradeExternalBoostMult(up);
   }
 
   std::wstring FormatUpgradeBonusValue(const UpgradeDef& up,
@@ -2020,6 +2038,8 @@ private:
       case UpgradeEffect::UnlockAutoTech:
       case UpgradeEffect::ElectronLensBoost:
       case UpgradeEffect::ProtonInjectorBoost:
+      case UpgradeEffect::ElementAtomEpsBoost:
+      case UpgradeEffect::ChaoticEpsBoost:
         break;
     }
     return L"+" + game_ui::FormatEv(total);
@@ -2049,7 +2069,9 @@ private:
       return ss.str();
     }
     if (up.effect == UpgradeEffect::ElectronLensBoost ||
-        up.effect == UpgradeEffect::ProtonInjectorBoost) {
+        up.effect == UpgradeEffect::ProtonInjectorBoost ||
+        up.effect == UpgradeEffect::ElementAtomEpsBoost ||
+        up.effect == UpgradeEffect::ChaoticEpsBoost) {
       const double mult = up.level > 0
                               ? std::pow(up.effect_per_level,
                                          static_cast<double>(up.level))
@@ -2057,8 +2079,12 @@ private:
       ss << L"Total: x" << game_ui::FormatInt(mult);
       if (up.effect == UpgradeEffect::ElectronLensBoost) {
         ss << L" Electron Lens EPS";
-      } else {
+      } else if (up.effect == UpgradeEffect::ProtonInjectorBoost) {
         ss << L" Proton Injector click";
+      } else if (up.effect == UpgradeEffect::ChaoticEpsBoost) {
+        ss << L" total EPS";
+      } else {
+        ss << L" atom EPS";
       }
       return ss.str();
     }
@@ -2066,14 +2092,15 @@ private:
     const double total = UpgradeBonusTotal(up);
     const int grade =
         UpgradeUsesGrade(up.effect) ? UpgradeGrade(up.level) : 0;
+    const double boost_x = UpgradeExternalBoostMult(up);
     if (grade > 0) {
       const double grade_x = UpgradeGradeMultiplier(
           grade, UpgradeGradeBase(up.effect));
-      ss << L"grade x" << game_ui::FormatInt(grade_x) << L"\n"
-         << L"Total: " << FormatUpgradeBonusValue(up, total);
-      return ss.str();
+      ss << L"grade x" << game_ui::FormatInt(grade_x) << L"\n";
     }
-
+    if (boost_x > 1.0 + 1e-9) {
+      ss << L"boost x" << game_ui::FormatInt(boost_x) << L"\n";
+    }
     ss << L"Total: " << FormatUpgradeBonusValue(up, total);
     if (up.effect == UpgradeEffect::AutoClickMult) {
       ss << L"\nClick: " << game_ui::FormatEv(G().EffectiveClickPower())
@@ -2315,11 +2342,17 @@ private:
           const int tip_grade = UpgradeUsesGrade(tip_up.effect)
                                     ? UpgradeGrade(tip_up.level)
                                     : 0;
-          const float tip_h =
-              tip_grade > 0
-                  ? 56.f
-                  : (tip_up.effect == UpgradeEffect::AutoClickMult ? 64.f
-                                                                  : 52.f);
+          const bool tip_boost = UpgradeExternalBoostMult(tip_up) > 1.0 + 1e-9;
+          float tip_h = 52.f;
+          if (tip_grade > 0) {
+            tip_h += 14.f;
+          }
+          if (tip_boost) {
+            tip_h += 14.f;
+          }
+          if (tip_up.effect == UpgradeEffect::AutoClickMult) {
+            tip_h += 12.f;
+          }
           ShowHoverTip(FormatUpgradeTotalBonus(tip_up), 400.f, tip_h);
         }
         return;
@@ -2338,7 +2371,13 @@ private:
     if (dust_hit_.state == ComponentState::Hovered &&
         PointInRect(mouse->x, mouse->y, dust_hit_.x, dust_hit_.y,
                     dust_hit_.width, dust_hit_.height)) {
-      ShowHoverTip(FormatDustBonusText(), 340.f, 90.f);
+      {
+      float dust_tip_h = 90.f;
+      if (G().ChaoticEpsBoostMult() > 1.0 + 1e-9) {
+        dust_tip_h += 16.f;
+      }
+      ShowHoverTip(FormatDustBonusText(), 340.f, dust_tip_h);
+    }
       return;
     }
 
@@ -2357,6 +2396,13 @@ private:
     if (G().dust_flat_click > 0.0) {
       ss << L"+" << game_ui::FormatEv(G().dust_flat_click)
          << L" Dust Click eV\n";
+    }
+    {
+      const double chaotic = G().ChaoticEpsBoostMult();
+      if (chaotic > 1.0 + 1e-9) {
+        ss << L"x" << game_ui::FormatInt(chaotic)
+           << L" Chaotic Accelerator EPS\n";
+      }
     }
     ss << L"Mut: " << game_ui::FormatInt(std::clamp(dust * 0.1, 0.0, 50.0))
        << L"% atom -> isotope";

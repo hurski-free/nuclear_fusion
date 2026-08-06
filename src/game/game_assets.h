@@ -101,6 +101,7 @@ struct GameAssets {
         "boost_auto_tech",
         "boost_click_e",
         "boost_click_p",
+        "boost_chaotic",
         "annihilation_Hydrogen",
         "annihilation_Helium",
         "annihilation_Carbon",
@@ -149,6 +150,7 @@ struct GameAssets {
         L"assets\\icons\\upgrades\\quantum_cpu.png",
         L"assets\\icons\\upgrades\\click_e.png",
         L"assets\\icons\\upgrades\\click_p.png",
+        L"assets\\icons\\upgrades\\chaotic_accelerator.png",
         L"assets\\icons\\upgrades\\annihilation.png",
         L"assets\\icons\\upgrades\\annihilation.png",
         L"assets\\icons\\upgrades\\annihilation.png",
@@ -161,7 +163,7 @@ struct GameAssets {
         L"assets\\icons\\upgrades\\annihilation.png",
         L"assets\\icons\\upgrades\\annihilation.png",
         L"assets\\icons\\upgrades\\annihilation.png"};
-    for (int i = 0; i < 47; ++i) {
+    for (int i = 0; i < 48; ++i) {
       upgrades[up_ids[i]] = ui_load_texture(ctx, up_files[i]);
     }
   }
@@ -189,6 +191,9 @@ struct GameAssets {
     }
     if (id.rfind("atom_", 0) == 0) {
       return ElementIcon(id.substr(5));
+    }
+    if (id.rfind("boost_atom_", 0) == 0) {
+      return ElementIcon(id.substr(11));
     }
     if (id.rfind("annihilation", 0) == 0) {
       const auto coil = upgrades.find("annihilation_Helium");

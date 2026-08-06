@@ -106,8 +106,8 @@ struct GameState {
 
     // Particle tree (display order: electron → proton → neutron).
     list.push_back(UpgradeDef{
-        "click_e", L"Electron Lens", L"+0.2 EPS",
-        {{ResourceKind::Electron, "", 5}}, 1.5, UpgradeEffect::AutoEps, 0.2,
+        "click_e", L"Electron Lens", L"+1 EPS",
+        {{ResourceKind::Electron, "", 5}}, 1.5, UpgradeEffect::AutoEps, 1.0,
         0});
 
     list.push_back(UpgradeDef{
@@ -123,11 +123,11 @@ struct GameState {
     // Per element by Z: nucleus (click) -> atom (EPS) -> isotope coil.
     list.push_back(UpgradeDef{
         "nuc_Hydrogen", L"Hydrogen Core", L"+2 eV click power",
-        {{ResourceKind::Nucleus, "Hydrogen", 5}}, 1.5, UpgradeEffect::ClickPower,
+        {{ResourceKind::Nucleus, "Hydrogen", 5}}, 1.35, UpgradeEffect::ClickPower,
         2.0, 0});
     list.push_back(UpgradeDef{
-        "atom_Hydrogen", L"Hydrogen Farm", L"+2.5 EPS",
-        {{ResourceKind::Atom, "Hydrogen", 5}}, 1.5, UpgradeEffect::AutoEps, 2.5,
+        "atom_Hydrogen", L"Hydrogen Farm", L"+5 EPS",
+        {{ResourceKind::Atom, "Hydrogen", 5}}, 1.35, UpgradeEffect::AutoEps, 5.0,
         0});
     // Coil bonuses: same +0.01 isotope EPS mult per level for every element.
     list.push_back(UpgradeDef{
@@ -139,11 +139,11 @@ struct GameState {
 
     list.push_back(UpgradeDef{
         "nuc_Helium", L"Helium Core", L"+10 eV click power",
-        {{ResourceKind::Nucleus, "Helium", 5}}, 1.5, UpgradeEffect::ClickPower,
+        {{ResourceKind::Nucleus, "Helium", 5}}, 1.35, UpgradeEffect::ClickPower,
         10.0, 0});
     list.push_back(UpgradeDef{
-        "atom_Helium", L"Helium Turbine", L"+5 EPS",
-        {{ResourceKind::Atom, "Helium", 5}}, 1.5, UpgradeEffect::AutoEps, 5.0,
+        "atom_Helium", L"Helium Turbine", L"+10 EPS",
+        {{ResourceKind::Atom, "Helium", 5}}, 1.35, UpgradeEffect::AutoEps, 10.0,
         0});
     list.push_back(UpgradeDef{
         "annihilation_Helium", L"He Annihilation Coil",
@@ -154,11 +154,11 @@ struct GameState {
 
     list.push_back(UpgradeDef{
         "nuc_Carbon", L"Carbon Core", L"+30 eV click power",
-        {{ResourceKind::Nucleus, "Carbon", 5}}, 1.5, UpgradeEffect::ClickPower,
+        {{ResourceKind::Nucleus, "Carbon", 5}}, 1.35, UpgradeEffect::ClickPower,
         30.0, 0});
     list.push_back(UpgradeDef{
-        "atom_Carbon", L"Carbon Lattice", L"+15 EPS",
-        {{ResourceKind::Atom, "Carbon", 5}}, 1.5, UpgradeEffect::AutoEps, 15.0,
+        "atom_Carbon", L"Carbon Lattice", L"+30 EPS",
+        {{ResourceKind::Atom, "Carbon", 5}}, 1.35, UpgradeEffect::AutoEps, 30.0,
         0});
     list.push_back(UpgradeDef{
         "annihilation_Carbon", L"C Annihilation Coil",
@@ -169,11 +169,11 @@ struct GameState {
 
     list.push_back(UpgradeDef{
         "nuc_Oxygen", L"Oxygen Core", L"+50 eV click power",
-        {{ResourceKind::Nucleus, "Oxygen", 5}}, 1.5, UpgradeEffect::ClickPower,
+        {{ResourceKind::Nucleus, "Oxygen", 5}}, 1.35, UpgradeEffect::ClickPower,
         50.0, 0});
     list.push_back(UpgradeDef{
-        "atom_Oxygen", L"Oxygen Reactor", L"+30 EPS",
-        {{ResourceKind::Atom, "Oxygen", 5}}, 1.5, UpgradeEffect::AutoEps, 30.0,
+        "atom_Oxygen", L"Oxygen Reactor", L"+60 EPS",
+        {{ResourceKind::Atom, "Oxygen", 5}}, 1.35, UpgradeEffect::AutoEps, 60.0,
         0});
     list.push_back(UpgradeDef{
         "annihilation_Oxygen", L"O Annihilation Coil",
@@ -184,11 +184,11 @@ struct GameState {
 
     list.push_back(UpgradeDef{
         "nuc_Silicon", L"Silicon Core", L"+90 eV click power",
-        {{ResourceKind::Nucleus, "Silicon", 5}}, 1.5, UpgradeEffect::ClickPower,
+        {{ResourceKind::Nucleus, "Silicon", 5}}, 1.35, UpgradeEffect::ClickPower,
         90.0, 0});
     list.push_back(UpgradeDef{
-        "atom_Silicon", L"Silicon Array", L"+60 EPS",
-        {{ResourceKind::Atom, "Silicon", 5}}, 1.5, UpgradeEffect::AutoEps, 60.0,
+        "atom_Silicon", L"Silicon Array", L"+120 EPS",
+        {{ResourceKind::Atom, "Silicon", 5}}, 1.35, UpgradeEffect::AutoEps, 120.0,
         0});
     list.push_back(UpgradeDef{
         "annihilation_Silicon", L"Si Annihilation Coil",
@@ -199,11 +199,11 @@ struct GameState {
 
     list.push_back(UpgradeDef{
         "nuc_Iron", L"Iron Core", L"+180 eV click power",
-        {{ResourceKind::Nucleus, "Iron", 5}}, 1.5, UpgradeEffect::ClickPower,
+        {{ResourceKind::Nucleus, "Iron", 5}}, 1.35, UpgradeEffect::ClickPower,
         180.0, 0});
     list.push_back(UpgradeDef{
-        "atom_Iron", L"Iron Forge", L"+120 EPS",
-        {{ResourceKind::Atom, "Iron", 5}}, 1.5, UpgradeEffect::AutoEps, 120.0,
+        "atom_Iron", L"Iron Forge", L"+240 EPS",
+        {{ResourceKind::Atom, "Iron", 5}}, 1.35, UpgradeEffect::AutoEps, 240.0,
         0});
     list.push_back(UpgradeDef{
         "annihilation_Iron", L"Fe Annihilation Coil",
@@ -214,11 +214,11 @@ struct GameState {
 
     list.push_back(UpgradeDef{
         "nuc_Nickel", L"Nickel Core", L"+350 eV click power",
-        {{ResourceKind::Nucleus, "Nickel", 5}}, 1.5, UpgradeEffect::ClickPower,
+        {{ResourceKind::Nucleus, "Nickel", 5}}, 1.35, UpgradeEffect::ClickPower,
         350.0, 0});
     list.push_back(UpgradeDef{
-        "atom_Nickel", L"Nickel Stack", L"+250 EPS",
-        {{ResourceKind::Atom, "Nickel", 5}}, 1.5, UpgradeEffect::AutoEps, 250.0,
+        "atom_Nickel", L"Nickel Stack", L"+500 EPS",
+        {{ResourceKind::Atom, "Nickel", 5}}, 1.35, UpgradeEffect::AutoEps, 500.0,
         0});
     list.push_back(UpgradeDef{
         "annihilation_Nickel", L"Ni Annihilation Coil",
@@ -229,11 +229,11 @@ struct GameState {
 
     list.push_back(UpgradeDef{
         "nuc_Silver", L"Silver Core", L"+5000 eV click power",
-        {{ResourceKind::Nucleus, "Silver", 5}}, 1.5, UpgradeEffect::ClickPower,
+        {{ResourceKind::Nucleus, "Silver", 5}}, 1.35, UpgradeEffect::ClickPower,
         5000.0, 0});
     list.push_back(UpgradeDef{
-        "atom_Silver", L"Silver Circuit", L"+3500 EPS",
-        {{ResourceKind::Atom, "Silver", 5}}, 1.5, UpgradeEffect::AutoEps, 3500.0,
+        "atom_Silver", L"Silver Circuit", L"+7000 EPS",
+        {{ResourceKind::Atom, "Silver", 5}}, 1.35, UpgradeEffect::AutoEps, 7000.0,
         0});
     list.push_back(UpgradeDef{
         "annihilation_Silver", L"Ag Annihilation Coil",
@@ -244,11 +244,11 @@ struct GameState {
 
     list.push_back(UpgradeDef{
         "nuc_Xenon", L"Xenon Core", L"+20000 eV click power",
-        {{ResourceKind::Nucleus, "Xenon", 5}}, 1.5, UpgradeEffect::ClickPower,
+        {{ResourceKind::Nucleus, "Xenon", 5}}, 1.35, UpgradeEffect::ClickPower,
         20000.0, 0});
     list.push_back(UpgradeDef{
-        "atom_Xenon", L"Xenon Chamber", L"+15000 EPS",
-        {{ResourceKind::Atom, "Xenon", 5}}, 1.5, UpgradeEffect::AutoEps, 15000.0,
+        "atom_Xenon", L"Xenon Chamber", L"+30000 EPS",
+        {{ResourceKind::Atom, "Xenon", 5}}, 1.35, UpgradeEffect::AutoEps, 30000.0,
         0});
     list.push_back(UpgradeDef{
         "annihilation_Xenon", L"Xe Annihilation Coil",
@@ -259,12 +259,12 @@ struct GameState {
 
     list.push_back(UpgradeDef{
         "nuc_Gadolinium", L"Gadolinium Core", L"+100K eV click power",
-        {{ResourceKind::Nucleus, "Gadolinium", 5}}, 1.5,
+        {{ResourceKind::Nucleus, "Gadolinium", 5}}, 1.35,
         UpgradeEffect::ClickPower, 100000.0, 0});
     list.push_back(UpgradeDef{
-        "atom_Gadolinium", L"Gadolinium Lattice", L"+70K EPS",
-        {{ResourceKind::Atom, "Gadolinium", 5}}, 1.5, UpgradeEffect::AutoEps,
-        70000.0, 0});
+        "atom_Gadolinium", L"Gadolinium Lattice", L"+140K EPS",
+        {{ResourceKind::Atom, "Gadolinium", 5}}, 1.35, UpgradeEffect::AutoEps,
+        140000.0, 0});
     list.push_back(UpgradeDef{
         "annihilation_Gadolinium", L"Gd Annihilation Coil",
         L"+0.01 isotope EPS multiplier",
@@ -274,12 +274,12 @@ struct GameState {
 
     list.push_back(UpgradeDef{
         "nuc_Tungsten", L"Tungsten Core", L"+500K eV click power",
-        {{ResourceKind::Nucleus, "Tungsten", 5}}, 1.5, UpgradeEffect::ClickPower,
+        {{ResourceKind::Nucleus, "Tungsten", 5}}, 1.35, UpgradeEffect::ClickPower,
         500000.0, 0});
     list.push_back(UpgradeDef{
-        "atom_Tungsten", L"Tungsten Forge", L"+300K EPS",
-        {{ResourceKind::Atom, "Tungsten", 5}}, 1.5, UpgradeEffect::AutoEps,
-        300000.0, 0});
+        "atom_Tungsten", L"Tungsten Forge", L"+600K EPS",
+        {{ResourceKind::Atom, "Tungsten", 5}}, 1.35, UpgradeEffect::AutoEps,
+        600000.0, 0});
     list.push_back(UpgradeDef{
         "annihilation_Tungsten", L"W Annihilation Coil",
         L"+0.01 isotope EPS multiplier",
@@ -289,12 +289,12 @@ struct GameState {
 
     list.push_back(UpgradeDef{
         "nuc_Gold", L"Gold Core", L"+1.5M eV click power",
-        {{ResourceKind::Nucleus, "Gold", 5}}, 1.5, UpgradeEffect::ClickPower,
+        {{ResourceKind::Nucleus, "Gold", 5}}, 1.35, UpgradeEffect::ClickPower,
         1500000.0, 0});
     list.push_back(UpgradeDef{
-        "atom_Gold", L"Gold Dynamo", L"+1M EPS",
-        {{ResourceKind::Atom, "Gold", 5}}, 1.5, UpgradeEffect::AutoEps,
-        1000000.0, 0});
+        "atom_Gold", L"Gold Dynamo", L"+2M EPS",
+        {{ResourceKind::Atom, "Gold", 5}}, 1.35, UpgradeEffect::AutoEps,
+        2000000.0, 0});
     list.push_back(UpgradeDef{
         "annihilation_Gold", L"Au Annihilation Coil",
         L"+0.01 isotope EPS multiplier",
@@ -321,11 +321,11 @@ struct GameState {
         1.8, UpgradeEffect::CraftEnergyDiscount, 0.02, 0});
 
     list.push_back(UpgradeDef{
-        "quantum_cpu", L"Quantum Processor", L"+10 click multiplier",
+        "quantum_cpu", L"Quantum Processor", L"+1 click multiplier",
         {{ResourceKind::Electron, "", 10000000000.0},
          {ResourceKind::Nucleus, "Silicon", 50000000.0},
          {ResourceKind::Atom, "Gold", 25}},
-        2.2, UpgradeEffect::AutoClickMult, 10.0, 0});
+        1.8, UpgradeEffect::AutoClickMult, 1.0, 0});
 
     // D Tech (dust) — persist through resets; shown only after first prestige.
     list.push_back(UpgradeDef{
@@ -344,13 +344,50 @@ struct GameState {
     list.push_back(UpgradeDef{
         "boost_click_e", L"Electron Lens Boost",
         L"x10 Electron Lens EPS (permanent)",
-        {{ResourceKind::StarDust, "", 25}}, 2.0,
+        {{ResourceKind::StarDust, "", 5}}, 2.0,
         UpgradeEffect::ElectronLensBoost, 10.0, 0, true});
     list.push_back(UpgradeDef{
         "boost_click_p", L"Proton Injector Boost",
         L"x10 Proton Injector click (permanent)",
-        {{ResourceKind::StarDust, "", 25}}, 2.0,
+        {{ResourceKind::StarDust, "", 5}}, 2.0,
         UpgradeEffect::ProtonInjectorBoost, 10.0, 0, true});
+
+    // Per-element atom EPS accelerators (id boost_atom_<Element>).
+    struct AtomAccel {
+      const char* element_id;
+      const wchar_t* element_name;
+      const wchar_t* farm_name;
+    };
+    const AtomAccel accels[] = {
+        {"Hydrogen", L"Hydrogen", L"Hydrogen Farm"},
+        {"Helium", L"Helium", L"Helium Turbine"},
+        {"Carbon", L"Carbon", L"Carbon Lattice"},
+        {"Oxygen", L"Oxygen", L"Oxygen Reactor"},
+        {"Silicon", L"Silicon", L"Silicon Array"},
+        {"Iron", L"Iron", L"Iron Forge"},
+        {"Nickel", L"Nickel", L"Nickel Stack"},
+        {"Silver", L"Silver", L"Silver Circuit"},
+        {"Xenon", L"Xenon", L"Xenon Chamber"},
+        {"Gadolinium", L"Gadolinium", L"Gadolinium Lattice"},
+        {"Tungsten", L"Tungsten", L"Tungsten Forge"},
+        {"Gold", L"Gold", L"Gold Dynamo"},
+    };
+    for (const auto& a : accels) {
+      const std::string id = std::string("boost_atom_") + a.element_id;
+      const std::wstring name = std::wstring(a.element_name) + L" Accelerator";
+      const std::wstring desc =
+          std::wstring(L"x2 ") + a.farm_name + L" EPS (permanent)";
+      list.push_back(UpgradeDef{id, name, desc,
+                                {{ResourceKind::StarDust, "", 10}}, 2.0,
+                                UpgradeEffect::ElementAtomEpsBoost, 2.0, 0,
+                                true});
+    }
+
+    list.push_back(UpgradeDef{
+        "boost_chaotic", L"Chaotic Accelerator",
+        L"x2 total EPS (permanent)",
+        {{ResourceKind::StarDust, "", 50}}, 3.0,
+        UpgradeEffect::ChaoticEpsBoost, 2.0, 0, true});
 
     return list;
   }
@@ -481,9 +518,21 @@ struct GameState {
     return sum;
   }
 
+  // x2^level from D Tech Chaotic Accelerator on total EPS.
+  double ChaoticEpsBoostMult() const {
+    for (const auto& up : upgrades) {
+      if (up.effect == UpgradeEffect::ChaoticEpsBoost && up.level > 0) {
+        return std::pow(up.effect_per_level, static_cast<double>(up.level));
+      }
+    }
+    return 1.0;
+  }
+
   double Eps() const {
-    // Flat +Dust EPS and Dust Dynamo; no passive dust EPS/click multipliers.
-    return auto_eps + IsotopeEps() + star_dust + dust_flat_eps;
+    // Flat +Dust EPS and Dust Dynamo; Chaotic Accelerator multiplies the sum.
+    const double base =
+        auto_eps + IsotopeEps() + star_dust + dust_flat_eps;
+    return base * ChaoticEpsBoostMult();
   }
 
   // One star click worth of eV before crit (includes Quantum Processor mult).
@@ -795,6 +844,13 @@ struct GameState {
   // Tech upgrades that spend an undiscovered isotope stay hidden.
   // Nucleus/atom upgrades appear only after the element is unlocked.
   bool IsUpgradeVisible(const UpgradeDef& up) const {
+    if (up.effect == UpgradeEffect::ElementAtomEpsBoost &&
+        up.id.rfind("boost_atom_", 0) == 0) {
+      const Element* el = FindElement(up.id.substr(11));
+      if (!el || !el->unlocked) {
+        return false;
+      }
+    }
     for (const auto& c : up.base_costs) {
       if (c.kind == ResourceKind::Isotope && !IsotopeDiscovered(c.element_id)) {
         return false;
@@ -918,13 +974,26 @@ struct GameState {
     return 1.0;
   }
 
+  // x2^level from D Tech "<Element> Accelerator" on that element's atom EPS.
+  double ElementAtomEpsBoostMult(const std::string& element_id) const {
+    const std::string boost_id = "boost_atom_" + element_id;
+    for (const auto& up : upgrades) {
+      if (up.id == boost_id && up.level > 0) {
+        return std::pow(up.effect_per_level, static_cast<double>(up.level));
+      }
+    }
+    return 1.0;
+  }
+
   void ApplyUpgradeTotal(const UpgradeDef& up) {
     if (up.level <= 0) {
       return;
     }
-    // Dust boosts are applied as multipliers on click_e / click_p below.
+    // Dust boosts are applied as multipliers on their Tech targets below.
     if (up.effect == UpgradeEffect::ElectronLensBoost ||
-        up.effect == UpgradeEffect::ProtonInjectorBoost) {
+        up.effect == UpgradeEffect::ProtonInjectorBoost ||
+        up.effect == UpgradeEffect::ElementAtomEpsBoost ||
+        up.effect == UpgradeEffect::ChaoticEpsBoost) {
       return;
     }
     double total = UpgradeScaledEffect(up);
@@ -932,6 +1001,9 @@ struct GameState {
       total *= DustBoostMultiplier(UpgradeEffect::ElectronLensBoost);
     } else if (up.id == "click_p") {
       total *= DustBoostMultiplier(UpgradeEffect::ProtonInjectorBoost);
+    } else if (up.effect == UpgradeEffect::AutoEps &&
+               up.id.rfind("atom_", 0) == 0) {
+      total *= ElementAtomEpsBoostMult(up.id.substr(5));
     }
     switch (up.effect) {
       case UpgradeEffect::ClickPower:
@@ -966,6 +1038,8 @@ struct GameState {
         break;
       case UpgradeEffect::ElectronLensBoost:
       case UpgradeEffect::ProtonInjectorBoost:
+      case UpgradeEffect::ElementAtomEpsBoost:
+      case UpgradeEffect::ChaoticEpsBoost:
         break;
     }
   }

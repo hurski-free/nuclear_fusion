@@ -305,6 +305,46 @@ def icon_quantum_cpu(n=64):
     return b
 
 
+def icon_chaotic_accelerator(n=64):
+    """Chaotic Accelerator — unstable swirling core with lightning."""
+    b = canvas(n)
+    magenta = (255, 100, 200)
+    for i, (col, a0, r_base, twist) in enumerate(
+        (
+            (PURPLE, 200, 22, 1.2),
+            (magenta, 180, 18, -1.7),
+            (ORANGE, 190, 14, 2.3),
+            (G_HOT, 170, 10, -2.8),
+        )
+    ):
+        for t in range(0, 270, 2):
+            ang = math.radians(t + i * 40) + twist * (t / 270.0)
+            rad = r_base + 3.0 * math.sin(t * 0.08 + i)
+            x = 32 + math.cos(ang) * rad
+            y = 32 + math.sin(ang) * rad
+            disk(b, n, x, y, 1.5, *col, a0, soft=1.2)
+    for x0, y0, x1, y1 in ((12, 18, 50, 40), (48, 14, 18, 46), (20, 50, 46, 20)):
+        line(b, n, x0, y0, x1, y1, *YELLOW, 210, 1.3)
+        mx = (x0 + x1) * 0.5 + 4
+        my = (y0 + y1) * 0.5 - 3
+        line(b, n, x0, y0, mx, my, *G_CORE, 180, 1.0)
+        line(b, n, mx, my, x1, y1, *G_CORE, 180, 1.0)
+    disk(b, n, 32, 32, 9, *PURPLE, 220, soft=2.5)
+    disk(b, n, 32, 32, 5.5, *magenta, 240, soft=1.5)
+    disk(b, n, 32, 32, 3.0, *YELLOW, 255)
+    disk(b, n, 32, 32, 1.4, 255, 255, 245, 255)
+    for x, y, col in (
+        (14, 28, G),
+        (50, 30, ORANGE),
+        (30, 12, G_HOT),
+        (36, 52, PURPLE),
+        (22, 44, YELLOW),
+        (46, 48, magenta),
+    ):
+        disk(b, n, x, y, 1.8, *col, 230, soft=1.0)
+    return b
+
+
 def icon_annihilation(n=64):
     """Annihilation Coil — spiral coil with flash."""
     b = canvas(n)
@@ -439,6 +479,7 @@ def main():
         "auto_he.png": icon_auto_he,
         "auto_o.png": icon_auto_o,
         "quantum_cpu.png": icon_quantum_cpu,
+        "chaotic_accelerator.png": icon_chaotic_accelerator,
         "annihilation.png": icon_annihilation,
     }
     for name, fn in icons.items():

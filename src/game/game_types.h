@@ -184,6 +184,10 @@ enum class UpgradeEffect {
   // Prestige dust boosts: each level multiplies the target upgrade by effect_per_level.
   ElectronLensBoost,
   ProtonInjectorBoost,
+  // Prestige dust: x2^level on that element's atom (EPS) Tech upgrade; no grade.
+  ElementAtomEpsBoost,
+  // Prestige dust: x2^level on total EPS; no grade.
+  ChaoticEpsBoost,
 };
 
 // Grade thresholds: 10, 25, 50, 100, then every +100 (200, 300, ...).

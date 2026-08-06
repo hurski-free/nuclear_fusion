@@ -215,9 +215,8 @@ inline bool LoadGame(GameState& g) {
   Reader r{buf.data(), buf.data() + buf.size() - sizeof(uint32_t)};
   uint32_t magic = 0;
   uint32_t version = 0;
-  if (!r.Read(magic) || magic != kMagic || !r.Read(version) ||
-      (version != 2u && version != 3u && version != 4u && version != 5u &&
-       version != 6u && version != 7u)) {
+  if (!r.Read(magic) || magic != kMagic || !r.Read(version) || version < 2u ||
+      version > kVersion) {
     return false;
   }
 

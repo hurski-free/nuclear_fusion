@@ -97,6 +97,8 @@ struct GameAssets {
         "tungsten_catalyst",
         "quantum_cpu",
         "boost_dust_eps",
+        "boost_dust_click",
+        "boost_auto_tech",
         "boost_click_e",
         "boost_click_p",
         "annihilation_Hydrogen",
@@ -143,6 +145,8 @@ struct GameAssets {
         L"assets\\icons\\upgrades\\tungsten_catalyst.png",
         L"assets\\icons\\upgrades\\quantum_cpu.png",
         L"assets\\icons\\energy.png",
+        L"assets\\icons\\upgrades\\click_p.png",
+        L"assets\\icons\\upgrades\\quantum_cpu.png",
         L"assets\\icons\\upgrades\\click_e.png",
         L"assets\\icons\\upgrades\\click_p.png",
         L"assets\\icons\\upgrades\\annihilation.png",
@@ -157,7 +161,7 @@ struct GameAssets {
         L"assets\\icons\\upgrades\\annihilation.png",
         L"assets\\icons\\upgrades\\annihilation.png",
         L"assets\\icons\\upgrades\\annihilation.png"};
-    for (int i = 0; i < 45; ++i) {
+    for (int i = 0; i < 47; ++i) {
       upgrades[up_ids[i]] = ui_load_texture(ctx, up_files[i]);
     }
   }

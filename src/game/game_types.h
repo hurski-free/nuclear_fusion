@@ -175,8 +175,12 @@ enum class UpgradeEffect {
   IsotopeEpsMult,
   // Additive discount on nucleus/atom craft eV (0.02 = -2% per level; no grade).
   CraftEnergyDiscount,
-  // Prestige dust: flat EPS outside the dust EPS multiplier (no grade).
+  // Prestige dust: flat EPS (no grade).
   DustFlatEps,
+  // Prestige dust: flat click eV (no grade).
+  DustFlatClick,
+  // Prestige dust: unlock Tech auto-buy toggles (no numeric effect).
+  UnlockAutoTech,
   // Prestige dust boosts: each level multiplies the target upgrade by effect_per_level.
   ElectronLensBoost,
   ProtonInjectorBoost,

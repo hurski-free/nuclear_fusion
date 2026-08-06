@@ -147,6 +147,7 @@ struct UpgradeRow {
   Label cost_label{};
   TechCostLine costs[kMaxCosts]{};
   Button buy{};
+  Toggle auto_buy{};
   Image grade_icon{};
   Label grade_label{};
   int upgrade_index = -1;

@@ -61,7 +61,9 @@ public:
 
     SyncBatchesFromUi();
     SyncAutoBuyFromUi();
+    SyncAutoTechFromUi();
     UpdateAutoBuy(dt);
+    UpdateAutoTech(dt);
 
     hud_refresh_accum_ += dt;
     const float interval = std::max(0.05f, app.settings.hud_refresh_sec);
@@ -296,6 +298,91 @@ private:
     }
     auto_buy_accum_ = 0.f;
     if (G().TickAutoBuy()) {
+      RequestHudRefresh();
+    }
+  }
+
+  void SyncAutoTechToUi() {
+    for (int i = 0; i < kMaxUpgradeRows; ++i) {
+      auto& row = upgrade_rows_[i];
+      if (row.upgrade_index < 0 ||
+          row.upgrade_index >= static_cast<int>(G().upgrades.size())) {
+        row.auto_buy.checked = false;
+        continue;
+      }
+      const auto& up = G().upgrades[row.upgrade_index];
+      row.auto_buy.checked =
+          !G().auto_tech_id.empty() && up.id == G().auto_tech_id;
+    }
+  }
+
+  void SyncAutoTechFromUi() {
+    if (!G().AutoTechUnlocked() || tech_tab_index_ != 0) {
+      return;
+    }
+    // Keep selection when the target row is scrolled out of the visible pool.
+    std::string selected = G().auto_tech_id;
+    int checked = 0;
+    std::string only;
+    std::string newly;
+    bool current_visible = false;
+    bool current_checked = false;
+    for (int i = 0; i < kMaxUpgradeRows; ++i) {
+      auto& row = upgrade_rows_[i];
+      if (row.upgrade_index < 0 || row.auto_buy.disabled ||
+          row.upgrade_index >= static_cast<int>(G().upgrades.size())) {
+        continue;
+      }
+      const auto& up = G().upgrades[row.upgrade_index];
+      if (up.persist_on_reset) {
+        continue;
+      }
+      if (up.id == G().auto_tech_id) {
+        current_visible = true;
+        current_checked = row.auto_buy.checked;
+      }
+      if (row.auto_buy.checked) {
+        only = up.id;
+        ++checked;
+        if (up.id != G().auto_tech_id) {
+          newly = up.id;
+        }
+      }
+    }
+    if (checked > 1) {
+      selected = newly.empty() ? only : newly;
+    } else if (checked == 1) {
+      selected = only;
+    } else if (current_visible && !current_checked) {
+      selected.clear();
+    }
+    for (int i = 0; i < kMaxUpgradeRows; ++i) {
+      auto& row = upgrade_rows_[i];
+      if (row.upgrade_index < 0 ||
+          row.upgrade_index >= static_cast<int>(G().upgrades.size())) {
+        continue;
+      }
+      const auto& up = G().upgrades[row.upgrade_index];
+      row.auto_buy.checked = (!selected.empty() && up.id == selected);
+    }
+    if (G().auto_tech_id != selected) {
+      G().auto_tech_id = selected;
+      auto_tech_accum_ = 0.f;
+      SaveGame(G());
+    }
+  }
+
+  void UpdateAutoTech(float dt) {
+    if (!G().AutoTechUnlocked() || G().auto_tech_id.empty()) {
+      auto_tech_accum_ = 0.f;
+      return;
+    }
+    auto_tech_accum_ += dt;
+    if (auto_tech_accum_ < 1.f) {
+      return;
+    }
+    auto_tech_accum_ = 0.f;
+    if (G().TickAutoTech()) {
       RequestHudRefresh();
     }
   }
@@ -808,6 +895,8 @@ private:
           }
         }
       };
+      StyleAutoBuyToggle(row.auto_buy);
+      row.auto_buy.disabled = true;
       game_ui::ClearImageStyle(row.grade_icon);
       row.grade_icon.texture_id = assets_.grade;
       row.grade_icon.width = row.grade_icon.height = 32.f;
@@ -829,6 +918,7 @@ private:
         tech_scroll_.components.push_back(&row.costs[c].amount);
       }
       tech_scroll_.components.push_back(&row.buy);
+      tech_scroll_.components.push_back(&row.auto_buy);
       tech_scroll_.components.push_back(&row.grade_icon);
       tech_scroll_.components.push_back(&row.grade_label);
     }
@@ -1073,7 +1163,9 @@ private:
         L"grade multiplier (x10, x100, ...); isotope coils use x2, x4, "
         L"x8, ...\n"
         L"Dust boosts live in D Tech (unlocks after the first Supernova, when "
-        L"Dust appears): Dust Dynamo (+10 EPS for 1 Dust), plus Electron Lens / "
+        L"Dust appears): Dust Dynamo (+20 EPS for 1 Dust), Dust Click (+10 eV "
+        L"click for 1 Dust), Auto Tech (unlocks exclusive auto-buy toggles "
+        L"next to Tech Buy buttons), plus Electron Lens / "
         L"Proton Injector x10 boosts that survive Prestige.\n"
         L"Critical Cascade (+1 crit mult) costs atoms H..Fe; Quantum "
         L"Processor adds click multiplier (one click counts as many).",
@@ -1712,7 +1804,9 @@ private:
     return -1;
   }
 
-  void RefreshUpgradeRows() {
+  // Returns true when grade badges appear/disappear and need Relayout.
+  bool RefreshUpgradeRows() {
+    bool need_relayout = false;
     visible_upgrade_indices_.clear();
     const bool show_dust = tech_tab_index_ == 1 && G().DTechUnlocked();
     for (int i = 0; i < static_cast<int>(G().upgrades.size()); ++i) {
@@ -1736,6 +1830,7 @@ private:
       row.desc.disabled = !active;
       row.cost_label.disabled = !active;
       row.buy.disabled = !active;
+      row.auto_buy.disabled = !active;
       row.grade_icon.disabled = !active;
       row.grade_label.disabled = !active;
       for (int c = 0; c < game_ui::UpgradeRow::kMaxCosts; ++c) {
@@ -1751,6 +1846,7 @@ private:
         row.grade_icon.texture_id = -1;
         row.upgrade_index = -1;
         row.cost_count = 0;
+        row.auto_buy.checked = false;
         for (int c = 0; c < game_ui::UpgradeRow::kMaxCosts; ++c) {
           row.costs[c].icon.texture_id = -1;
           row.costs[c].amount.text.clear();
@@ -1768,12 +1864,21 @@ private:
 
       const int grade =
           UpgradeUsesGrade(up.effect) ? UpgradeGrade(up.level) : 0;
+      // Hide() parks widgets at x=-4000; Relayout is required to show them.
+      const bool grade_was_shown = row.grade_icon.x > -1000.f;
       if (grade > 0) {
         row.grade_icon.texture_id = assets_.grade;
         row.grade_label.text = L"x" + game_ui::FormatInt(grade);
+        if (!grade_was_shown) {
+          need_relayout = true;
+        }
       } else {
         row.grade_icon.texture_id = -1;
         row.grade_label.text.clear();
+        if (grade_was_shown) {
+          Hide(row.grade_icon);
+          Hide(row.grade_label);
+        }
       }
 
       row.desc.text = FormatUpgradePerLevelDesc(up);
@@ -1809,7 +1914,13 @@ private:
         }
       }
       row.buy.disabled = !G().CanAffordUpgrade(up);
+      const bool show_auto =
+          G().AutoTechUnlocked() && tech_tab_index_ == 0 && !up.persist_on_reset;
+      row.auto_buy.disabled = !show_auto;
+      row.auto_buy.checked =
+          show_auto && !G().auto_tech_id.empty() && up.id == G().auto_tech_id;
     }
+    return need_relayout;
   }
 
   int CountUnlockedElements() const {
@@ -1862,6 +1973,10 @@ private:
                L"% nucleus/atom eV craft cost";
       case UpgradeEffect::DustFlatEps:
         return L"+" + game_ui::FormatEv(v) + L" EPS (permanent)";
+      case UpgradeEffect::DustFlatClick:
+        return L"+" + game_ui::FormatEv(v) + L" eV click (permanent)";
+      case UpgradeEffect::UnlockAutoTech:
+        return L"Unlock Tech auto-buy toggles (permanent)";
       case UpgradeEffect::ElectronLensBoost:
         return L"x" + game_ui::FormatEv(v) +
                L" Electron Lens EPS (permanent)";
@@ -1901,6 +2016,8 @@ private:
         return L"+" + game_ui::FormatEv(total) + L" isotope EPS mult";
       case UpgradeEffect::CraftEnergyDiscount:
       case UpgradeEffect::DustFlatEps:
+      case UpgradeEffect::DustFlatClick:
+      case UpgradeEffect::UnlockAutoTech:
       case UpgradeEffect::ElectronLensBoost:
       case UpgradeEffect::ProtonInjectorBoost:
         break;
@@ -1913,6 +2030,16 @@ private:
     if (up.effect == UpgradeEffect::DustFlatEps) {
       ss << L"Total: +" << game_ui::FormatEv(UpgradeScaledEffect(up))
          << L" EPS";
+      return ss.str();
+    }
+    if (up.effect == UpgradeEffect::DustFlatClick) {
+      ss << L"Total: +" << game_ui::FormatEv(UpgradeScaledEffect(up))
+         << L" eV click";
+      return ss.str();
+    }
+    if (up.effect == UpgradeEffect::UnlockAutoTech) {
+      ss << L"Total: Tech auto-buy "
+         << (up.level > 0 ? L"unlocked" : L"locked");
       return ss.str();
     }
     if (up.effect == UpgradeEffect::CraftEnergyDiscount) {
@@ -2227,6 +2354,10 @@ private:
       ss << L"+" << game_ui::FormatEv(G().dust_flat_eps)
          << L" Dust Dynamo EPS\n";
     }
+    if (G().dust_flat_click > 0.0) {
+      ss << L"+" << game_ui::FormatEv(G().dust_flat_click)
+         << L" Dust Click eV\n";
+    }
     ss << L"Mut: " << game_ui::FormatInt(std::clamp(dust * 0.1, 0.0, 50.0))
        << L"% atom -> isotope";
     return ss.str();
@@ -2303,11 +2434,12 @@ private:
         ComboBuyLabel(G().ResolveTrioBuyAmount(), G().TrioUnitPrice());
 
     RefreshElementRows();
-    RefreshUpgradeRows();
+    const bool upgrades_need_relayout = RefreshUpgradeRows();
 
     const int unlocked = CountUnlockedElements();
     const int isotopes = CountDiscoveredIsotopes();
-    if (unlocked != unlocked_count_ || isotopes != isotope_discovered_count_) {
+    if (unlocked != unlocked_count_ || isotopes != isotope_discovered_count_ ||
+        upgrades_need_relayout) {
       unlocked_count_ = unlocked;
       isotope_discovered_count_ = isotopes;
       Relayout();
@@ -2830,6 +2962,7 @@ private:
           Hide(row.costs[c].amount);
         }
         Hide(row.buy);
+        Hide(row.auto_buy);
         Hide(row.grade_icon);
         Hide(row.grade_label);
         continue;
@@ -2838,6 +2971,8 @@ private:
       constexpr float kCostIcon = 36.f;
       constexpr float kCostLineH = 36.f;
       constexpr float kGradeIcon = 32.f;
+      constexpr float kAutoTechW = 48.f;
+      constexpr float kAutoTechGap = 10.f;
       const float desc_h = kUpLineH;
       const float cost_block_h = kUpLineH + cost_n * kCostLineH;
       const float card_h =
@@ -2846,6 +2981,11 @@ private:
       const float text_x = 14.f + kUpIcon + kUpIconGap;
       const float text_w =
           std::max(120.f, tech_inner_w - kUpIcon - kUpIconGap - 8.f);
+      const bool show_auto = G().AutoTechUnlocked() && tech_tab_index_ == 0 &&
+                             !row.auto_buy.disabled;
+      const float buy_w =
+          show_auto ? std::min(tech_buy_w, text_w - kAutoTechW - kAutoTechGap)
+                    : std::min(tech_buy_w, text_w);
       row.card.x = 6.f;
       row.card.y = y;
       row.card.width = tech_inner_w + 4.f;
@@ -2860,7 +3000,7 @@ private:
       row.title.height = kUpTitleH;
       row.desc.width = text_w;
       row.desc.height = desc_h;
-      row.buy.width = tech_buy_w;
+      row.buy.width = buy_w;
       row.buy.height = kUpBuyH;
       row.title.x = text_x;
       row.title.y = y + kUpPad - 2.f;
@@ -2891,6 +3031,15 @@ private:
 
       row.buy.x = text_x;
       row.buy.y = row.cost_label.y + cost_block_h + 8.f;
+      if (show_auto) {
+        row.auto_buy.width = kAutoTechW;
+        row.auto_buy.height = 26.f;
+        row.auto_buy.x = row.buy.x + row.buy.width + kAutoTechGap;
+        row.auto_buy.y =
+            row.buy.y + (row.buy.height - row.auto_buy.height) * 0.5f;
+      } else {
+        Hide(row.auto_buy);
+      }
 
       const int grade =
           (row.upgrade_index >= 0 &&
@@ -3008,6 +3157,7 @@ private:
   bool auto_tog_pn_ = false;
   bool auto_tog_all_ = false;
   float auto_buy_accum_ = 0.f;
+  float auto_tech_accum_ = 0.f;
   Image icon_supernova_{};
   Button supernova_{};
   Image icon_autoclick_{};

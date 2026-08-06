@@ -15,7 +15,7 @@
 namespace save_io {
 
 inline constexpr uint32_t kMagic = 0x4E465331u;  // "NF1S"
-inline constexpr uint32_t kVersion = 7u;
+inline constexpr uint32_t kVersion = 8u;
 inline constexpr uint8_t kXorKey[8] = {0xA5, 0x3C, 0x77, 0x19,
                                        0xE2, 0x5B, 0x91, 0x0D};
 
@@ -144,6 +144,7 @@ inline bool SaveGame(const GameState& g) {
   w.Write(static_cast<int32_t>(g.prestige_count));
   w.Write(g.prestige_gold_next);
   w.Write(static_cast<int32_t>(g.auto_buy));
+  w.WriteString(g.auto_tech_id);
 
   w.Write(static_cast<uint32_t>(g.elements.size()));
   for (const auto& el : g.elements) {
@@ -235,6 +236,7 @@ inline bool LoadGame(GameState& g) {
   g.prestige_count = 0;
   g.prestige_gold_next = kPrestigeGoldPerDust;
   g.auto_buy = AutoBuyMode::None;
+  g.auto_tech_id.clear();
   if (version >= 3u) {
     int32_t craft_batch = 0;
     int32_t buy_batch = 0;
@@ -273,6 +275,11 @@ inline bool LoadGame(GameState& g) {
         auto_buy = static_cast<int32_t>(AutoBuyMode::None);
       }
       g.auto_buy = static_cast<AutoBuyMode>(auto_buy);
+    }
+    if (version >= 8u) {
+      if (!r.ReadString(g.auto_tech_id)) {
+        return false;
+      }
     }
     g.star_type = ClampStarType(star_type);
     g.craft_batch = clamp_batch(craft_batch);
@@ -355,6 +362,20 @@ inline bool LoadGame(GameState& g) {
         g.prestige_count = 1;
         break;
       }
+    }
+  }
+
+  // Drop invalid / D Tech auto-buy targets from older or corrupted saves.
+  if (!g.auto_tech_id.empty()) {
+    bool ok = false;
+    for (const auto& up : g.upgrades) {
+      if (up.id == g.auto_tech_id && !up.persist_on_reset) {
+        ok = true;
+        break;
+      }
+    }
+    if (!ok || !g.AutoTechUnlocked()) {
+      g.auto_tech_id.clear();
     }
   }
 

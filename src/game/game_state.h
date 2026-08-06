@@ -27,8 +27,10 @@ struct GameState {
   double crit_multiplier = 2.0;
   double auto_eps = 0.0;
   double auto_click_mult = 1.0;
-  // Flat EPS from D Tech DustFlatEps upgrades (not scaled by dust EPS mult).
+  // Flat EPS from D Tech DustFlatEps upgrades.
   double dust_flat_eps = 0.0;
+  // Flat click eV from D Tech DustFlatClick upgrades.
+  double dust_flat_click = 0.0;
 
 
   // Energy cost to materialize one particle.
@@ -40,6 +42,8 @@ struct GameState {
   CraftBatch craft_batch = CraftBatch::x1;  // Lab nucleus/atom craft
   CraftBatch buy_batch = CraftBatch::x1;    // p/n/e materialize
   AutoBuyMode auto_buy = AutoBuyMode::None;
+  // Tech auto-buy target upgrade id (empty = off). Requires Auto Tech D Tech.
+  std::string auto_tech_id;
 
   std::vector<Element> elements;
   std::vector<UpgradeDef> upgrades;
@@ -60,10 +64,12 @@ struct GameState {
     auto_eps = 0.0;
     auto_click_mult = 1.0;
     dust_flat_eps = 0.0;
+    dust_flat_click = 0.0;
     star_type = StarType::BrownDwarf;
     craft_batch = CraftBatch::x1;
     buy_batch = CraftBatch::x1;
     auto_buy = AutoBuyMode::None;
+    auto_tech_id.clear();
     elements = CreateDefaultElements();
     upgrades = CreateDefaultUpgrades();
     UnlockElementsForStar();
@@ -323,9 +329,18 @@ struct GameState {
 
     // D Tech (dust) — persist through resets; shown only after first prestige.
     list.push_back(UpgradeDef{
-        "boost_dust_eps", L"Dust Dynamo", L"+10 EPS (permanent)",
-        {{ResourceKind::StarDust, "", 1}}, 1.0, UpgradeEffect::DustFlatEps, 10.0,
+        "boost_dust_eps", L"Dust Dynamo", L"+20 EPS (permanent)",
+        {{ResourceKind::StarDust, "", 1}}, 1.0, UpgradeEffect::DustFlatEps, 20.0,
         0, true});
+    list.push_back(UpgradeDef{
+        "boost_dust_click", L"Dust Click", L"+10 eV click (permanent)",
+        {{ResourceKind::StarDust, "", 1}}, 1.0, UpgradeEffect::DustFlatClick,
+        10.0, 0, true});
+    list.push_back(UpgradeDef{
+        "boost_auto_tech", L"Auto Tech",
+        L"Unlock auto-buy toggles on Tech upgrades (permanent)",
+        {{ResourceKind::StarDust, "", 1}}, 1.0, UpgradeEffect::UnlockAutoTech,
+        1.0, 0, true});
     list.push_back(UpgradeDef{
         "boost_click_e", L"Electron Lens Boost",
         L"x10 Electron Lens EPS (permanent)",
@@ -342,6 +357,35 @@ struct GameState {
 
   // D Tech (dust upgrades) unlocks once Dust exists in the run cycle —
   // after the first Supernova (or Prestige on Neutron Star).
+  bool AutoTechUnlocked() const {
+    for (const auto& up : upgrades) {
+      if (up.id == "boost_auto_tech" && up.level > 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Buy one level of the selected Tech auto-buy target if affordable.
+  bool TickAutoTech() {
+    if (auto_tech_id.empty() || !AutoTechUnlocked()) {
+      return false;
+    }
+    for (auto& up : upgrades) {
+      if (up.id != auto_tech_id) {
+        continue;
+      }
+      // Only Tech (non-D Tech) upgrades.
+      if (up.persist_on_reset) {
+        auto_tech_id.clear();
+        return false;
+      }
+      return BuyUpgrade(up);
+    }
+    auto_tech_id.clear();
+    return false;
+  }
+
   bool DTechUnlocked() const {
     return star_type != StarType::BrownDwarf || prestige_count > 0;
   }
@@ -840,6 +884,10 @@ struct GameState {
   }
 
   bool CanAffordUpgrade(const UpgradeDef& up) const {
+    // Auto Tech is a one-time unlock.
+    if (up.effect == UpgradeEffect::UnlockAutoTech && up.level > 0) {
+      return false;
+    }
     for (const auto& c : up.base_costs) {
       if (ResourceAmount(c) + 1e-9 < ScaledCostAmount(up, c)) {
         return false;
@@ -911,6 +959,11 @@ struct GameState {
       case UpgradeEffect::DustFlatEps:
         dust_flat_eps += total;
         break;
+      case UpgradeEffect::DustFlatClick:
+        dust_flat_click += total;
+        break;
+      case UpgradeEffect::UnlockAutoTech:
+        break;
       case UpgradeEffect::ElectronLensBoost:
       case UpgradeEffect::ProtonInjectorBoost:
         break;
@@ -927,13 +980,14 @@ struct GameState {
     auto_eps = 0.0;
     auto_click_mult = 1.0;
     dust_flat_eps = 0.0;
+    dust_flat_click = 0.0;
 
     for (const auto& up : upgrades) {
       ApplyUpgradeTotal(up);
     }
 
-    // Innate base click of 1 is included so early game still works at Dust 0.
-    click_power = 1.0 + click_power;
+    // Innate base click of 1 + permanent D Tech flat click.
+    click_power = 1.0 + click_power + dust_flat_click;
   }
 
   bool CanTriggerSupernova() const {
